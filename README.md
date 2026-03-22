@@ -9,6 +9,11 @@ If you want Codex in your code editor (VS Code, Cursor, Windsurf), <a href="http
 </br>If you are looking for the <em>cloud-based agent</em> from OpenAI, <strong>Codex Web</strong>, go to <a href="https://chatgpt.com/codex">chatgpt.com/codex</a>.</p>
 
 ---
+> **Note**
+>
+> This fork tracks upstream `openai/codex` releases and applies a minimal compatibility patch related to [issue #13232](https://github.com/openai/codex/issues/13232).
+> The patch Base64-encodes the `x-codex-turn-metadata` HTTP header to ensure compliance with services that reject non-ASCII header values (e.g. Azure OpenAI).
+> No other behavior is changed.
 
 ## Quickstart
 
