@@ -63,7 +63,10 @@ pub(crate) struct TurnMetadataBag {
 
 impl TurnMetadataBag {
     fn to_header_value(&self) -> Option<String> {
-        serde_json::to_string(self).ok()
+        use base64::prelude::*;
+        serde_json::to_string(self)
+            .ok()
+            .map(|json| BASE64_STANDARD.encode(json))
     }
 }
 

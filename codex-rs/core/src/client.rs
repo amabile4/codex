@@ -1350,7 +1350,11 @@ impl ModelClientSession {
 /// Invalid values are treated as absent so callers can compare and propagate
 /// metadata with the same sanitization path used when constructing headers.
 fn parse_turn_metadata_header(turn_metadata_header: Option<&str>) -> Option<HeaderValue> {
-    turn_metadata_header.and_then(|value| HeaderValue::from_str(value).ok())
+    use base64::prelude::*;
+    turn_metadata_header
+        .and_then(|value| BASE64_STANDARD.decode(value).ok())
+        .and_then(|bytes| String::from_utf8(bytes).ok())
+        .and_then(|value| HeaderValue::from_str(&value).ok())
 }
 
 fn build_ws_client_metadata(turn_metadata_header: Option<&str>) -> Option<HashMap<String, String>> {

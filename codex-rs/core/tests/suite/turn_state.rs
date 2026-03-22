@@ -19,6 +19,16 @@ use serde_json::Value;
 
 const TURN_STATE_HEADER: &str = "x-codex-turn-state";
 
+/// Decodes the Base64-encoded x-codex-turn-metadata header value.
+fn decode_turn_metadata_header(header: &str) -> String {
+    use base64::prelude::*;
+    BASE64_STANDARD
+        .decode(header)
+        .map_err(|e| format!("Failed to decode base64: {}", e))
+        .and_then(|bytes| String::from_utf8(bytes).map_err(|e| e.to_string()))
+        .expect("x-codex-turn-metadata should be valid Base64-encoded UTF-8")
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn responses_turn_state_persists_within_turn_and_resets_after() -> Result<()> {
     skip_if_no_network!(Ok(()));
@@ -67,7 +77,8 @@ async fn responses_turn_state_persists_within_turn_and_resets_after() -> Result<
 
     let parse_turn_id = |header: Option<String>| {
         let value = header?;
-        let parsed: Value = serde_json::from_str(&value).ok()?;
+        let decoded = decode_turn_metadata_header(&value);
+        let parsed: Value = serde_json::from_str(&decoded).ok()?;
         parsed
             .get("turn_id")
             .and_then(Value::as_str)
