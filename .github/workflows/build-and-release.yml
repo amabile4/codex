@@ -7,10 +7,11 @@ on:
 
 jobs:
   build-linux:
-    name: Linux build
+    name: Linux build (release)
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Install system dependencies
         run: |
@@ -31,17 +32,20 @@ jobs:
           path: codex-rs/target/release/codex
 
   build-windows:
-    name: Windows build
+    name: Windows build (release, low-memory)
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Build (release)
+      - name: Build (release, LTO disabled, single binary)
         working-directory: codex-rs
-        run: cargo build --release
+        env:
+          CARGO_PROFILE_RELEASE_LTO: "false"
+        run: cargo build --release --bin codex --jobs 1
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
@@ -53,6 +57,8 @@ jobs:
     name: Create GitHub Release
     needs: [build-linux, build-windows]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Download Linux artifact
         uses: actions/download-artifact@v4
@@ -66,11 +72,14 @@ jobs:
           name: codex-windows
           path: dist/windows
 
-      - name: Create Release
+      - name: List release files
+        run: ls -R dist
+
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
           files: |
             dist/linux/codex
             dist/windows/codex.exe
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
