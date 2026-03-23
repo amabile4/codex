@@ -9,8 +9,16 @@ jobs:
   build-windows:
     name: Windows build (release)
     runs-on: windows-latest
-    timeout-minutes: 60
+    timeout-minutes: 120
     steps:
+      - name: Cache cargo registry + target
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          codex-rs/target
+        key: windows-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: Checkout repository
         uses: actions/checkout@v4
 
