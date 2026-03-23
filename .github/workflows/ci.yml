@@ -4,9 +4,13 @@ on:
   push:
     branches:
       - '**'
+    tags-ignore:
+      - '**'
   pull_request:
 
 jobs:
+  build:
+    if: ${{ github.repository == 'openai/codex' }}
   build-test:
     runs-on: ubuntu-latest
     timeout-minutes: 10
