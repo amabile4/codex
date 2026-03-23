@@ -1,37 +1,60 @@
+name: build-and-release-windows
+
+on:
+  push:
+    tags:
+      - 'rust-v[0-9]+.[0-9]+.[0-9]+'
+
 jobs:
   build-windows:
     name: Windows build (release)
     runs-on: windows-latest
+    timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
 
-      - name: Build (release, low-memory)
+      - name: Build codex.exe (release, low memory)
         working-directory: codex-rs
         env:
           CARGO_PROFILE_RELEASE_LTO: "false"
         run: cargo build --release --bin codex --jobs 1
 
+      - name: Prepare zip archive
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist
+          Copy-Item codex-rs/target/release/codex.exe dist/codex.exe
+          Compress-Archive -Path dist/codex.exe -DestinationPath dist/codex-windows.zip -Force
+
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
           name: codex-windows
-          path: codex-rs/target/release/codex.exe
+          path: dist/codex-windows.zip
 
   release:
+    name: Create GitHub Release
     needs: build-windows
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
         with:
           name: codex-windows
           path: dist
 
-      - uses: softprops/action-gh-release@v2
+      - name: List release files
+        run: ls -l dist
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
-          files: dist/codex.exe
+          files: dist/codex-windows.zip
