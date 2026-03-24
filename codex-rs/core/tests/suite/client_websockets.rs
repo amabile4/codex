@@ -56,16 +56,6 @@ fn encode_turn_metadata_header(json: &str) -> String {
     BASE64_STANDARD.encode(json)
 }
 
-/// Decodes the Base64-encoded x-codex-turn-metadata header value.
-fn decode_turn_metadata_header(header: &str) -> String {
-    use base64::prelude::*;
-    BASE64_STANDARD
-        .decode(header)
-        .map_err(|e| format!("Failed to decode base64: {}", e))
-        .and_then(|bytes| String::from_utf8(bytes).map_err(|e| e.to_string()))
-        .expect("x-codex-turn-metadata should be valid Base64-encoded UTF-8")
-}
-
 struct WebsocketTestHarness {
     _codex_home: TempDir,
     client: ModelClient,
@@ -1123,8 +1113,8 @@ async fn responses_websocket_forwards_turn_metadata_on_initial_and_incremental_c
         Some(enriched_turn_metadata.as_str())
     );
 
-    let first_metadata: serde_json::Value =
-        serde_json::from_str(first_turn_metadata_json).expect("first metadata should be valid json");
+    let first_metadata: serde_json::Value = serde_json::from_str(first_turn_metadata_json)
+        .expect("first metadata should be valid json");
     let second_metadata: serde_json::Value = serde_json::from_str(enriched_turn_metadata_json)
         .expect("enriched metadata should be valid json");
 
