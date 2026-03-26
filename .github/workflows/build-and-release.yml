@@ -27,20 +27,24 @@ jobs:
             codex-rs/target
           key: windows-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Build codex.exe (release, low memory)
+      - name: Build Windows binaries (release)
         working-directory: codex-rs
         env:
           CARGO_PROFILE_RELEASE_LTO: "false"
           CODEX_FORK_REPOSITORY: ${{ github.repository }}
           CODEX_FORK_TAG: ${{ github.ref_name }}
-        run: cargo build --release --bin codex --jobs 1
+        run: cargo build --release --bins --jobs 1
 
       - name: Prepare zip archive
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dist
+
           Copy-Item codex-rs/target/release/codex.exe dist/codex.exe
-          Compress-Archive -Path dist/codex.exe -DestinationPath dist/codex-windows.zip -Force
+          Copy-Item codex-rs/target/release/codex-command-runner.exe dist/codex-command-runner.exe
+          Copy-Item codex-rs/target/release/codex-windows-sandbox-setup.exe dist/codex-windows-sandbox-setup.exe
+
+          Compress-Archive -Path dist/* -DestinationPath dist/codex-windows.zip -Force
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
