@@ -10,6 +10,7 @@ on:
   push:
     tags:
       - "rust-v*.*.*"
+      - "!rust-v*-azure.*"
 
 concurrency:
   group: ${{ github.workflow }}
