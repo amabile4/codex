@@ -1,0 +1,55 @@
+name: build-and-release-windows
+
+on:
+  push:
+    tags:
+      - 'rust-v*.*.*'
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            codex-rs/target
+          key: windows-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build Windows binaries
+        working-directory: codex-rs
+        run: cargo build --release --bins --jobs 1
+
+      - name: Package zip
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item codex-rs/target/release/*.exe dist/
+          Compress-Archive dist/* dist/codex-windows.zip -Force
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: codex-windows
+          path: dist/codex-windows.zip
+
+  release:
+    needs: build-windows
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: codex-windows
+          path: dist
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: dist/codex-windows.zip
