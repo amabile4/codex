@@ -1,9 +1,9 @@
-name: build-and-release-windows
+name: build-and-release-windows-azure-fork
 
 on:
   push:
     tags:
-      - 'rust-v*.*.*'
+      - 'rust-v*-azure.*'
 
 jobs:
   build-windows:
