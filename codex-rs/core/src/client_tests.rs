@@ -2,6 +2,7 @@ use super::AuthRequestTelemetryContext;
 use super::ModelClient;
 use super::PendingUnauthorizedRetry;
 use super::UnauthorizedRecoveryExecution;
+use base64::prelude::*;
 use codex_otel::SessionTelemetry;
 use codex_protocol::ThreadId;
 use codex_protocol::openai_models::ModelInfo;
@@ -119,4 +120,36 @@ fn auth_request_telemetry_context_tracks_attached_auth_and_retry_phase() {
     assert!(auth_context.retry_after_unauthorized);
     assert_eq!(auth_context.recovery_mode, Some("managed"));
     assert_eq!(auth_context.recovery_phase, Some("refresh_token"));
+}
+
+#[test]
+fn parse_turn_metadata_header_preserves_base64_for_multibyte_json() {
+    let encoded = BASE64_STANDARD.encode(r#"{"turn_id":"turn-123","label":"縺薙ｓ縺ｫ縺｡縺ｯ"}"#);
+
+    let header = super::parse_turn_metadata_header(Some(encoded.as_str()))
+        .expect("base64-encoded turn metadata should be accepted");
+
+    assert_eq!(header.to_str().ok(), Some(encoded.as_str()));
+}
+
+#[test]
+fn parse_turn_metadata_header_rejects_raw_ascii_json() {
+    let raw_json = r#"{"turn_id":"turn-123","sandbox":"workspace-write"}"#;
+
+    assert_eq!(super::parse_turn_metadata_header(Some(raw_json)), None);
+}
+
+#[test]
+fn build_ws_client_metadata_preserves_base64_for_multibyte_json() {
+    let encoded = BASE64_STANDARD.encode(r#"{"turn_id":"turn-123","label":"縺薙ｓ縺ｫ縺｡縺ｯ"}"#);
+
+    let client_metadata = super::build_ws_client_metadata(Some(encoded.as_str()))
+        .expect("base64-encoded turn metadata should be forwarded");
+
+    assert_eq!(
+        client_metadata
+            .get(super::X_CODEX_TURN_METADATA_HEADER)
+            .map(String::as_str),
+        Some(encoded.as_str())
+    );
 }

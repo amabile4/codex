@@ -65,7 +65,10 @@ pub(crate) struct TurnMetadataBag {
 
 impl TurnMetadataBag {
     fn to_header_value(&self) -> Option<String> {
-        serde_json::to_string(self).ok()
+        use base64::prelude::*;
+        serde_json::to_string(self)
+            .ok()
+            .map(|json| BASE64_STANDARD.encode(json))
     }
 }
 
@@ -177,8 +180,11 @@ impl TurnMetadataState {
     }
 
     pub(crate) fn current_meta_value(&self) -> Option<serde_json::Value> {
+        use base64::prelude::*;
         self.current_header_value()
-            .and_then(|header| serde_json::from_str(&header).ok())
+            .and_then(|header| BASE64_STANDARD.decode(header).ok())
+            .and_then(|bytes| String::from_utf8(bytes).ok())
+            .and_then(|json| serde_json::from_str(&json).ok())
     }
 
     pub(crate) fn spawn_git_enrichment_task(&self) {

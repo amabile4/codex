@@ -56,6 +56,12 @@ const OPENAI_BETA_HEADER: &str = "OpenAI-Beta";
 const WS_V2_BETA_HEADER_VALUE: &str = "responses_websockets=2026-02-06";
 const X_CLIENT_REQUEST_ID_HEADER: &str = "x-client-request-id";
 
+/// Encodes the turn metadata JSON as Base64 for use in x-codex-turn-metadata header.
+fn encode_turn_metadata_header(json: &str) -> String {
+    use base64::prelude::*;
+    BASE64_STANDARD.encode(json)
+}
+
 fn assert_request_trace_matches(body: &serde_json::Value, expected_trace: &W3cTraceContext) {
     let client_metadata = body["client_metadata"]
         .as_object()
@@ -1202,8 +1208,10 @@ async fn responses_websocket_forwards_turn_metadata_on_initial_and_incremental_c
 
     let harness = websocket_harness(&server).await;
     let mut client_session = harness.client.new_session();
-    let first_turn_metadata = r#"{"turn_id":"turn-123","sandbox":"workspace-write"}"#;
-    let enriched_turn_metadata = r#"{"turn_id":"turn-123","sandbox":"workspace-write","workspaces":[{"root_path":"/tmp/repo","latest_git_commit_hash":"abc123","associated_remote_urls":["git@github.com:openai/codex.git"],"has_changes":true}]}"#;
+    let first_turn_metadata_json = r#"{"turn_id":"turn-123","sandbox":"workspace-write"}"#;
+    let enriched_turn_metadata_json = r#"{"turn_id":"turn-123","sandbox":"workspace-write","workspaces":[{"root_path":"/tmp/repo","latest_git_commit_hash":"abc123","associated_remote_urls":["git@github.com:openai/codex.git"],"has_changes":true}]}"#;
+    let first_turn_metadata = encode_turn_metadata_header(first_turn_metadata_json);
+    let enriched_turn_metadata = encode_turn_metadata_header(enriched_turn_metadata_json);
     let prompt_one = prompt_with_input(vec![message_item("hello")]);
     let prompt_two = prompt_with_input(vec![
         message_item("hello"),
@@ -1216,7 +1224,7 @@ async fn responses_websocket_forwards_turn_metadata_on_initial_and_incremental_c
         &harness,
         &prompt_one,
         /*service_tier*/ None,
-        Some(first_turn_metadata),
+        Some(first_turn_metadata.as_str()),
     )
     .await;
     stream_until_complete_with_turn_metadata(
@@ -1224,7 +1232,7 @@ async fn responses_websocket_forwards_turn_metadata_on_initial_and_incremental_c
         &harness,
         &prompt_two,
         /*service_tier*/ None,
-        Some(enriched_turn_metadata),
+        Some(enriched_turn_metadata.as_str()),
     )
     .await;
 
@@ -1236,18 +1244,18 @@ async fn responses_websocket_forwards_turn_metadata_on_initial_and_incremental_c
     assert_eq!(first["type"].as_str(), Some("response.create"));
     assert_eq!(
         first["client_metadata"]["x-codex-turn-metadata"].as_str(),
-        Some(first_turn_metadata)
+        Some(first_turn_metadata.as_str())
     );
     assert_eq!(second["type"].as_str(), Some("response.create"));
     assert_eq!(second["previous_response_id"].as_str(), Some("resp-1"));
     assert_eq!(
         second["client_metadata"]["x-codex-turn-metadata"].as_str(),
-        Some(enriched_turn_metadata)
+        Some(enriched_turn_metadata.as_str())
     );
 
-    let first_metadata: serde_json::Value =
-        serde_json::from_str(first_turn_metadata).expect("first metadata should be valid json");
-    let second_metadata: serde_json::Value = serde_json::from_str(enriched_turn_metadata)
+    let first_metadata: serde_json::Value = serde_json::from_str(first_turn_metadata_json)
+        .expect("first metadata should be valid json");
+    let second_metadata: serde_json::Value = serde_json::from_str(enriched_turn_metadata_json)
         .expect("enriched metadata should be valid json");
 
     assert_eq!(first_metadata["turn_id"].as_str(), Some("turn-123"));
