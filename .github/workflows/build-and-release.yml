@@ -1,0 +1,60 @@
+name: build-and-release-windows-azure-fork
+on:
+  push:
+    branches:
+      - 'azure/release-*'
+    tags:
+      - 'rust-v*-azure.*'
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            codex-rs/target
+          key: windows-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build Windows binaries
+        working-directory: codex-rs
+        run: |
+          cargo build --release --bin codex --bin codex-windows-sandbox-setup --bin codex-command-runner
+
+      - name: Package zip
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item codex-rs/target/release/codex.exe dist/
+          Copy-Item codex-rs/target/release/codex-windows-sandbox-setup.exe dist/
+          Copy-Item codex-rs/target/release/codex-command-runner.exe dist/
+          Compress-Archive dist/* dist/codex-windows.zip -Force
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: codex-windows
+          path: dist/codex-windows.zip
+
+  release:
+    needs: build-windows
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: codex-windows
+          path: dist
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: dist/codex-windows.zip
