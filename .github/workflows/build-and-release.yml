@@ -2,8 +2,6 @@ name: build-and-release-windows-azure-fork
 
 on:
   push:
-    branches:
-      - "azure/release-*"
     tags:
       - "azure-release-*"
 
