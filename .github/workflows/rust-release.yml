@@ -7,9 +7,8 @@
 
 name: rust-release
 on:
-  push:
-    tags:
-      - "rust-v*.*.*"
+  # Azure fork: disable upstream release automation in favor of build-and-release.yml.
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}
@@ -17,6 +16,7 @@ concurrency:
 
 jobs:
   tag-check:
+    if: github.repository == 'openai/codex'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6

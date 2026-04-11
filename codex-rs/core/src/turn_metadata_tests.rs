@@ -1,9 +1,19 @@
 use super::*;
 
+use base64::prelude::*;
 use serde_json::Value;
 use std::collections::HashMap;
 use tempfile::TempDir;
 use tokio::process::Command;
+
+/// Azure fork: decode the Base64-encoded x-codex-turn-metadata header.
+fn decode_turn_metadata_header(header: &str) -> String {
+    BASE64_STANDARD
+        .decode(header)
+        .map_err(|e| format!("Failed to decode base64: {e}"))
+        .and_then(|bytes| String::from_utf8(bytes).map_err(|e| e.to_string()))
+        .expect("x-codex-turn-metadata should be valid Base64-encoded UTF-8")
+}
 
 #[tokio::test]
 async fn build_turn_metadata_header_includes_has_changes_for_clean_repo() {
@@ -47,7 +57,8 @@ async fn build_turn_metadata_header_includes_has_changes_for_clean_repo() {
     let header = build_turn_metadata_header(&repo_path, Some("none"))
         .await
         .expect("header");
-    let parsed: Value = serde_json::from_str(&header).expect("valid json");
+    let decoded = decode_turn_metadata_header(&header);
+    let parsed: Value = serde_json::from_str(&decoded).expect("valid json");
     let workspace = parsed
         .get("workspaces")
         .and_then(Value::as_object)
@@ -76,7 +87,8 @@ fn turn_metadata_state_uses_platform_sandbox_tag() {
     );
 
     let header = state.current_header_value().expect("header");
-    let json: Value = serde_json::from_str(&header).expect("json");
+    let decoded = decode_turn_metadata_header(&header);
+    let json: Value = serde_json::from_str(&decoded).expect("json");
     let sandbox_name = json.get("sandbox").and_then(Value::as_str);
     let session_id = json.get("session_id").and_then(Value::as_str);
 
@@ -104,7 +116,8 @@ fn turn_metadata_state_merges_client_metadata_without_replacing_reserved_fields(
     ]));
 
     let header = state.current_header_value().expect("header");
-    let json: Value = serde_json::from_str(&header).expect("json");
+    let decoded = decode_turn_metadata_header(&header);
+    let json: Value = serde_json::from_str(&decoded).expect("json");
 
     assert_eq!(json["fiber_run_id"].as_str(), Some("fiber-123"));
     assert_eq!(json["session_id"].as_str(), Some("session-a"));

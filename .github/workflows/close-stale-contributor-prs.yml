@@ -1,9 +1,8 @@
 name: Close stale contributor PRs
 
 on:
+  # Azure fork: keep the workflow file present but disable automated runs.
   workflow_dispatch:
-  schedule:
-    - cron: "0 6 * * *"
 
 permissions:
   contents: read

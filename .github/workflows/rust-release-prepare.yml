@@ -1,8 +1,7 @@
 name: rust-release-prepare
 on:
+  # Azure fork: keep the workflow file present but disable automated runs.
   workflow_dispatch:
-  schedule:
-    - cron: "0 */4 * * *"
 
 concurrency:
   group: ${{ github.workflow }}
