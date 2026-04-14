@@ -193,8 +193,7 @@ fn build_ws_client_metadata_preserves_base64_for_multibyte_json() {
         BASE64_STANDARD.encode(r#"{"turn_id":"turn-123","label":"邵ｺ阮呻ｽ鍋ｸｺ・ｫ邵ｺ・｡邵ｺ・ｯ"}"#);
 
     let client_metadata = test_model_client(SessionSource::Cli)
-        .build_ws_client_metadata(Some(encoded.as_str()))
-        .expect("base64-encoded turn metadata should be forwarded");
+        .build_ws_client_metadata(Some(encoded.as_str()));
 
     assert_eq!(
         client_metadata

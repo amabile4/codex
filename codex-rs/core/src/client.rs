@@ -818,7 +818,7 @@ impl ModelClientSession {
 
     fn build_responses_request(
         &self,
-        provider: &codex_api::Provider,
+        _provider: &codex_api::Provider,
         prompt: &Prompt,
         model_info: &ModelInfo,
         effort: Option<ReasoningEffortConfig>,
@@ -870,7 +870,7 @@ impl ModelClientSession {
             tool_choice: "auto".to_string(),
             parallel_tool_calls: prompt.parallel_tool_calls,
             reasoning,
-            store: provider.is_azure_responses_endpoint(),
+            store: false,
             stream: true,
             include,
             service_tier: match service_tier {

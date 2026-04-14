@@ -49,7 +49,7 @@ pub enum ToolSpec {
         #[serde(skip_serializing_if = "Option::is_none")]
         search_content_types: Option<Vec<String>>,
     },
-    #[serde(rename = "custom")]
+    #[serde(rename = "function")]
     Freeform(FreeformTool),
 }
 
