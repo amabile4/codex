@@ -818,7 +818,7 @@ impl ModelClientSession {
 
     fn build_responses_request(
         &self,
-        _provider: &codex_api::Provider,
+        provider: &codex_api::Provider,
         prompt: &Prompt,
         model_info: &ModelInfo,
         effort: Option<ReasoningEffortConfig>,
@@ -841,7 +841,7 @@ impl ModelClientSession {
         } else {
             None
         };
-        let include = if reasoning.is_some() {
+        let include = if reasoning.is_some() && !provider.is_azure_responses_endpoint() {
             vec!["reasoning.encrypted_content".to_string()]
         } else {
             Vec::new()
@@ -880,10 +880,14 @@ impl ModelClientSession {
             },
             prompt_cache_key,
             text,
-            client_metadata: Some(HashMap::from([(
-                X_CODEX_INSTALLATION_ID_HEADER.to_string(),
-                self.client.state.installation_id.clone(),
-            )])),
+            client_metadata: if !provider.is_azure_responses_endpoint() {
+                Some(HashMap::from([(
+                    X_CODEX_INSTALLATION_ID_HEADER.to_string(),
+                    self.client.state.installation_id.clone(),
+                )]))
+            } else {
+                None
+            },
         };
         Ok(request)
     }
