@@ -300,6 +300,10 @@ impl ModelProviderInfo {
         self.name == OPENAI_PROVIDER_NAME
     }
 
+    pub fn is_azure_responses_endpoint(&self) -> bool {
+        codex_api::is_azure_responses_wire_base_url(&self.name, self.base_url.as_deref())
+    }
+
     pub fn has_command_auth(&self) -> bool {
         self.auth.is_some()
     }
