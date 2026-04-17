@@ -277,6 +277,22 @@ pub(crate) fn remove_corresponding_for(items: &mut Vec<ResponseItem>, item: &Res
                 )
             });
         }
+        // When a Reasoning item is removed, also remove the nearest following assistant
+        // Message. The Azure OpenAI Responses API (store=true) requires that a message
+        // which originally had an associated reasoning item must always include it; if we
+        // drop the reasoning but keep the message, the next API call fails with
+        // "message was provided without its required reasoning item."
+        ResponseItem::Reasoning { .. } => {
+            remove_first_matching(items, |i| {
+                matches!(i, ResponseItem::Message { role, .. } if role == "assistant")
+            });
+        }
+        // When an assistant Message is removed, also remove the nearest preceding
+        // Reasoning item so we don't leave orphaned reasoning that no longer has a
+        // corresponding message.
+        ResponseItem::Message { role, .. } if role == "assistant" => {
+            remove_last_matching(items, |i| matches!(i, ResponseItem::Reasoning { .. }));
+        }
         _ => {}
     }
 }
@@ -286,6 +302,15 @@ where
     F: Fn(&ResponseItem) -> bool,
 {
     if let Some(pos) = items.iter().position(predicate) {
+        items.remove(pos);
+    }
+}
+
+fn remove_last_matching<F>(items: &mut Vec<ResponseItem>, predicate: F)
+where
+    F: Fn(&ResponseItem) -> bool,
+{
+    if let Some(pos) = items.iter().rposition(predicate) {
         items.remove(pos);
     }
 }
