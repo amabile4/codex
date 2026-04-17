@@ -1,0 +1,1580 @@
+diff --git a/.github/workflows/rust-release.yml b/.github/workflows/rust-release.yml
+index efd3dd11e..54a8b911a 100644
+--- a/.github/workflows/rust-release.yml
++++ b/.github/workflows/rust-release.yml
+@@ -7,9 +7,7 @@
+ 
+ name: rust-release
+ on:
+-  push:
+-    tags:
+-      - "rust-v*.*.*"
++  workflow_dispatch:
+ 
+ concurrency:
+   group: ${{ github.workflow }}
+diff --git a/codex-rs/Cargo.lock b/codex-rs/Cargo.lock
+index 68e0ec092..6f5274321 100644
+--- a/codex-rs/Cargo.lock
++++ b/codex-rs/Cargo.lock
+@@ -402,7 +402,7 @@ checksum = "5f0e0fee31ef5ed1ba1316088939cea399010ed7731dba877ed44aeb407a75ea"
+ 
+ [[package]]
+ name = "app_test_support"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "anyhow",
+  "base64 0.22.1",
+@@ -1368,7 +1368,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-analytics"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "codex-app-server-protocol",
+  "codex-git-utils",
+@@ -1387,7 +1387,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-ansi-escape"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "ansi-to-tui",
+  "ratatui",
+@@ -1396,7 +1396,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-api"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "anyhow",
+  "assert_matches",
+@@ -1429,7 +1429,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-app-server"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "anyhow",
+  "app_test_support",
+@@ -1502,7 +1502,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-app-server-client"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "codex-app-server",
+  "codex-app-server-protocol",
+@@ -1525,7 +1525,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-app-server-protocol"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "anyhow",
+  "clap",
+@@ -1553,7 +1553,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-app-server-test-client"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "anyhow",
+  "clap",
+@@ -1574,7 +1574,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-apply-patch"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "anyhow",
+  "assert_cmd",
+@@ -1593,7 +1593,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-arg0"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "anyhow",
+  "codex-apply-patch",
+@@ -1610,7 +1610,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-async-utils"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "async-trait",
+  "pretty_assertions",
+@@ -1620,7 +1620,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-backend-client"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "anyhow",
+  "codex-backend-openapi-models",
+@@ -1635,7 +1635,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-backend-openapi-models"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "serde",
+  "serde_json",
+@@ -1644,7 +1644,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-chatgpt"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "anyhow",
+  "clap",
+@@ -1664,7 +1664,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-cli"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "anyhow",
+  "assert_cmd",
+@@ -1718,7 +1718,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-client"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "async-trait",
+  "bytes",
+@@ -1748,7 +1748,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-cloud-requirements"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "async-trait",
+  "base64 0.22.1",
+@@ -1773,7 +1773,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-cloud-tasks"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "anyhow",
+  "async-trait",
+@@ -1805,7 +1805,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-cloud-tasks-client"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "anyhow",
+  "async-trait",
+@@ -1819,7 +1819,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-cloud-tasks-mock-client"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "async-trait",
+  "chrono",
+@@ -1829,7 +1829,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-code-mode"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "async-trait",
+  "codex-protocol",
+@@ -1845,11 +1845,11 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-collaboration-mode-templates"
+-version = "0.0.0"
++version = "0.121.0"
+ 
+ [[package]]
+ name = "codex-config"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "anyhow",
+  "codex-app-server-protocol",
+@@ -1880,7 +1880,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-connectors"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "anyhow",
+  "codex-app-server-protocol",
+@@ -1892,7 +1892,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-core"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "anyhow",
+  "arc-swap",
+@@ -2015,7 +2015,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-core-skills"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "anyhow",
+  "codex-analytics",
+@@ -2045,7 +2045,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-debug-client"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "anyhow",
+  "clap",
+@@ -2057,7 +2057,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-exec"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "anyhow",
+  "assert_cmd",
+@@ -2101,7 +2101,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-exec-server"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "anyhow",
+  "arc-swap",
+@@ -2131,7 +2131,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-execpolicy"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "anyhow",
+  "clap",
+@@ -2148,7 +2148,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-execpolicy-legacy"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "allocative",
+  "anyhow",
+@@ -2168,7 +2168,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-experimental-api-macros"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "proc-macro2",
+  "quote",
+@@ -2177,7 +2177,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-features"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "codex-otel",
+  "codex-protocol",
+@@ -2190,7 +2190,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-feedback"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "anyhow",
+  "codex-login",
+@@ -2203,7 +2203,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-file-search"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "anyhow",
+  "clap",
+@@ -2219,7 +2219,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-git-utils"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "assert_matches",
+  "codex-utils-absolute-path",
+@@ -2238,7 +2238,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-hooks"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "anyhow",
+  "chrono",
+@@ -2257,7 +2257,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-instructions"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "codex-protocol",
+  "pretty_assertions",
+@@ -2266,7 +2266,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-keyring-store"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "keyring",
+  "tracing",
+@@ -2274,7 +2274,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-linux-sandbox"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "cc",
+  "clap",
+@@ -2297,7 +2297,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-lmstudio"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "codex-core",
+  "codex-model-provider-info",
+@@ -2311,7 +2311,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-login"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "anyhow",
+  "async-trait",
+@@ -2352,7 +2352,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-mcp"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "anyhow",
+  "async-channel",
+@@ -2382,7 +2382,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-mcp-server"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "anyhow",
+  "codex-arg0",
+@@ -2415,7 +2415,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-model-provider-info"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "codex-api",
+  "codex-app-server-protocol",
+@@ -2432,7 +2432,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-models-manager"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "base64 0.22.1",
+  "chrono",
+@@ -2463,7 +2463,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-network-proxy"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "anyhow",
+  "async-trait",
+@@ -2494,7 +2494,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-ollama"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "assert_matches",
+  "async-stream",
+@@ -2513,7 +2513,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-otel"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "chrono",
+  "codex-api",
+@@ -2545,7 +2545,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-plugin"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "codex-utils-absolute-path",
+  "codex-utils-plugins",
+@@ -2554,7 +2554,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-process-hardening"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "libc",
+  "pretty_assertions",
+@@ -2562,7 +2562,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-protocol"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "anyhow",
+  "chardetng",
+@@ -2602,7 +2602,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-realtime-webrtc"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "libwebrtc",
+  "thiserror 2.0.18",
+@@ -2611,7 +2611,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-response-debug-context"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "base64 0.22.1",
+  "codex-api",
+@@ -2622,7 +2622,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-responses-api-proxy"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "anyhow",
+  "clap",
+@@ -2639,7 +2639,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-rmcp-client"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "anyhow",
+  "axum",
+@@ -2673,7 +2673,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-rollout"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "anyhow",
+  "async-trait",
+@@ -2698,7 +2698,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-sandboxing"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "anyhow",
+  "async-trait",
+@@ -2718,7 +2718,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-secrets"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "age",
+  "anyhow",
+@@ -2739,7 +2739,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-shell-command"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "anyhow",
+  "base64 0.22.1",
+@@ -2759,7 +2759,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-shell-escalation"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "anyhow",
+  "async-trait",
+@@ -2780,7 +2780,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-skills"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "codex-utils-absolute-path",
+  "include_dir",
+@@ -2789,7 +2789,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-state"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "anyhow",
+  "chrono",
+@@ -2812,7 +2812,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-stdio-to-uds"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "anyhow",
+  "codex-utils-cargo-bin",
+@@ -2823,7 +2823,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-terminal-detection"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "pretty_assertions",
+  "tracing",
+@@ -2831,7 +2831,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-test-binary-support"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "codex-arg0",
+  "tempfile",
+@@ -2839,7 +2839,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-thread-store"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "async-trait",
+  "chrono",
+@@ -2858,7 +2858,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-tools"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "codex-app-server-protocol",
+  "codex-code-mode",
+@@ -2875,7 +2875,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-tui"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "anyhow",
+  "arboard",
+@@ -2973,7 +2973,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-absolute-path"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "dirs",
+  "dunce",
+@@ -2987,14 +2987,14 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-approval-presets"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "codex-protocol",
+ ]
+ 
+ [[package]]
+ name = "codex-utils-cache"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "lru 0.16.3",
+  "sha1",
+@@ -3003,7 +3003,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-cargo-bin"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "assert_cmd",
+  "runfiles",
+@@ -3012,7 +3012,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-cli"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "clap",
+  "codex-protocol",
+@@ -3023,15 +3023,15 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-elapsed"
+-version = "0.0.0"
++version = "0.121.0"
+ 
+ [[package]]
+ name = "codex-utils-fuzzy-match"
+-version = "0.0.0"
++version = "0.121.0"
+ 
+ [[package]]
+ name = "codex-utils-home-dir"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "codex-utils-absolute-path",
+  "dirs",
+@@ -3041,7 +3041,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-image"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "base64 0.22.1",
+  "codex-utils-cache",
+@@ -3053,7 +3053,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-json-to-toml"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "pretty_assertions",
+  "serde_json",
+@@ -3062,7 +3062,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-oss"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "codex-core",
+  "codex-lmstudio",
+@@ -3072,7 +3072,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-output-truncation"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "codex-protocol",
+  "codex-utils-string",
+@@ -3081,7 +3081,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-path"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "codex-utils-absolute-path",
+  "dunce",
+@@ -3091,7 +3091,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-plugins"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "codex-exec-server",
+  "codex-login",
+@@ -3104,7 +3104,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-pty"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "anyhow",
+  "filedescriptor",
+@@ -3120,7 +3120,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-readiness"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "assert_matches",
+  "async-trait",
+@@ -3131,14 +3131,14 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-rustls-provider"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "rustls",
+ ]
+ 
+ [[package]]
+ name = "codex-utils-sandbox-summary"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "codex-core",
+  "codex-model-provider-info",
+@@ -3149,7 +3149,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-sleep-inhibitor"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "core-foundation 0.9.4",
+  "libc",
+@@ -3159,14 +3159,14 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-stream-parser"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "pretty_assertions",
+ ]
+ 
+ [[package]]
+ name = "codex-utils-string"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "pretty_assertions",
+  "regex-lite",
+@@ -3174,14 +3174,14 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-utils-template"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "pretty_assertions",
+ ]
+ 
+ [[package]]
+ name = "codex-v8-poc"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "pretty_assertions",
+  "v8",
+@@ -3189,7 +3189,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "codex-windows-sandbox"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "anyhow",
+  "base64 0.22.1",
+@@ -3409,7 +3409,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "core_test_support"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "anyhow",
+  "assert_cmd",
+@@ -6476,7 +6476,7 @@ checksum = "b3eede3bdf92f3b4f9dc04072a9ce5ab557d5ec9038773bf9ffcd5588b3cc05b"
+ 
+ [[package]]
+ name = "mcp_test_support"
+-version = "0.0.0"
++version = "0.121.0"
+ dependencies = [
+  "anyhow",
+  "codex-login",
+diff --git a/codex-rs/core/src/client.rs b/codex-rs/core/src/client.rs
+index bd83c81f0..c09829301 100644
+--- a/codex-rs/core/src/client.rs
++++ b/codex-rs/core/src/client.rs
+@@ -832,7 +832,7 @@ impl ModelClientSession {
+         } else {
+             None
+         };
+-        let include = if reasoning.is_some() {
++        let include = if reasoning.is_some() && !provider.is_azure_responses_endpoint() {
+             vec!["reasoning.encrypted_content".to_string()]
+         } else {
+             Vec::new()
+@@ -871,10 +871,14 @@ impl ModelClientSession {
+             },
+             prompt_cache_key,
+             text,
+-            client_metadata: Some(HashMap::from([(
+-                X_CODEX_INSTALLATION_ID_HEADER.to_string(),
+-                self.client.state.installation_id.clone(),
+-            )])),
++            client_metadata: if !provider.is_azure_responses_endpoint() {
++                Some(HashMap::from([(
++                    X_CODEX_INSTALLATION_ID_HEADER.to_string(),
++                    self.client.state.installation_id.clone(),
++                )]))
++            } else {
++                None
++            },
+         };
+         Ok(request)
+     }
+@@ -1491,12 +1495,17 @@ impl ModelClientSession {
+     }
+ }
+ 
+-/// Parses per-turn metadata into an HTTP header value.
++/// Parses the already-encoded per-turn metadata into an HTTP header value.
+ ///
+ /// Invalid values are treated as absent so callers can compare and propagate
+-/// metadata with the same sanitization path used when constructing headers.
++/// metadata with the same Base64 sanitization path used when constructing
++/// headers.
+ fn parse_turn_metadata_header(turn_metadata_header: Option<&str>) -> Option<HeaderValue> {
+-    turn_metadata_header.and_then(|value| HeaderValue::from_str(value).ok())
++    use base64::prelude::*;
++
++    turn_metadata_header
++        .filter(|value| BASE64_STANDARD.decode(value).is_ok())
++        .and_then(|value| HeaderValue::from_str(value).ok())
+ }
+ 
+ /// Builds the extra headers attached to Responses API requests.
+diff --git a/codex-rs/core/src/client_tests.rs b/codex-rs/core/src/client_tests.rs
+index 2fd5f04f9..0919cca77 100644
+--- a/codex-rs/core/src/client_tests.rs
++++ b/codex-rs/core/src/client_tests.rs
+@@ -7,6 +7,7 @@ use super::X_CODEX_PARENT_THREAD_ID_HEADER;
+ use super::X_CODEX_TURN_METADATA_HEADER;
+ use super::X_CODEX_WINDOW_ID_HEADER;
+ use super::X_OPENAI_SUBAGENT_HEADER;
++use base64::prelude::*;
+ use codex_api::CoreAuthProvider;
+ use codex_app_server_protocol::AuthMode;
+ use codex_model_provider_info::WireApi;
+@@ -104,7 +105,8 @@ fn build_ws_client_metadata_includes_window_lineage_and_turn_metadata() {
+ 
+     client.advance_window_generation();
+ 
+-    let client_metadata = client.build_ws_client_metadata(Some(r#"{"turn_id":"turn-123"}"#));
++    let turn_metadata = BASE64_STANDARD.encode(r#"{"turn_id":"turn-123"}"#);
++    let client_metadata = client.build_ws_client_metadata(Some(turn_metadata.as_str()));
+     let conversation_id = client.state.conversation_id;
+     assert_eq!(
+         client_metadata,
+@@ -125,10 +127,7 @@ fn build_ws_client_metadata_includes_window_lineage_and_turn_metadata() {
+                 X_CODEX_PARENT_THREAD_ID_HEADER.to_string(),
+                 parent_thread_id.to_string(),
+             ),
+-            (
+-                X_CODEX_TURN_METADATA_HEADER.to_string(),
+-                r#"{"turn_id":"turn-123"}"#.to_string(),
+-            ),
++            (X_CODEX_TURN_METADATA_HEADER.to_string(), turn_metadata,),
+         ])
+     );
+ }
+@@ -169,3 +168,37 @@ fn auth_request_telemetry_context_tracks_attached_auth_and_retry_phase() {
+     assert_eq!(auth_context.recovery_mode, Some("managed"));
+     assert_eq!(auth_context.recovery_phase, Some("refresh_token"));
+ }
++
++#[test]
++fn parse_turn_metadata_header_preserves_base64_for_multibyte_json() {
++    let encoded =
++        BASE64_STANDARD.encode(r#"{"turn_id":"turn-123","label":"邵ｺ阮呻ｽ鍋ｸｺ・ｫ邵ｺ・｡邵ｺ・ｯ"}"#);
++
++    let header = super::parse_turn_metadata_header(Some(encoded.as_str()))
++        .expect("base64-encoded turn metadata should be accepted");
++
++    assert_eq!(header.to_str().ok(), Some(encoded.as_str()));
++}
++
++#[test]
++fn parse_turn_metadata_header_rejects_raw_ascii_json() {
++    let raw_json = r#"{"turn_id":"turn-123","sandbox":"workspace-write"}"#;
++
++    assert_eq!(super::parse_turn_metadata_header(Some(raw_json)), None);
++}
++
++#[test]
++fn build_ws_client_metadata_preserves_base64_for_multibyte_json() {
++    let encoded =
++        BASE64_STANDARD.encode(r#"{"turn_id":"turn-123","label":"邵ｺ阮呻ｽ鍋ｸｺ・ｫ邵ｺ・｡邵ｺ・ｯ"}"#);
++
++    let client_metadata = test_model_client(SessionSource::Cli)
++        .build_ws_client_metadata(Some(encoded.as_str()));
++
++    assert_eq!(
++        client_metadata
++            .get(super::X_CODEX_TURN_METADATA_HEADER)
++            .map(String::as_str),
++        Some(encoded.as_str())
++    );
++}
+diff --git a/codex-rs/core/src/compact.rs b/codex-rs/core/src/compact.rs
+index 59fb45454..527ea9bcd 100644
+--- a/codex-rs/core/src/compact.rs
++++ b/codex-rs/core/src/compact.rs
+@@ -58,7 +58,7 @@ pub(crate) enum InitialContextInjection {
+ }
+ 
+ pub(crate) fn should_use_remote_compact_task(provider: &ModelProviderInfo) -> bool {
+-    provider.is_openai()
++    provider.is_openai() || provider.is_azure_responses_endpoint()
+ }
+ 
+ pub(crate) async fn run_inline_auto_compact_task(
+diff --git a/codex-rs/core/src/context_manager/normalize.rs b/codex-rs/core/src/context_manager/normalize.rs
+index 839bae331..e8a8e849a 100644
+--- a/codex-rs/core/src/context_manager/normalize.rs
++++ b/codex-rs/core/src/context_manager/normalize.rs
+@@ -277,6 +277,22 @@ pub(crate) fn remove_corresponding_for(items: &mut Vec<ResponseItem>, item: &Res
+                 )
+             });
+         }
++        // When a Reasoning item is removed, also remove the nearest following assistant
++        // Message. The Azure OpenAI Responses API (store=true) requires that a message
++        // which originally had an associated reasoning item must always include it; if we
++        // drop the reasoning but keep the message, the next API call fails with
++        // "message was provided without its required reasoning item."
++        ResponseItem::Reasoning { .. } => {
++            remove_first_matching(items, |i| {
++                matches!(i, ResponseItem::Message { role, .. } if role == "assistant")
++            });
++        }
++        // When an assistant Message is removed, also remove the nearest preceding
++        // Reasoning item so we don't leave orphaned reasoning that no longer has a
++        // corresponding message.
++        ResponseItem::Message { role, .. } if role == "assistant" => {
++            remove_last_matching(items, |i| matches!(i, ResponseItem::Reasoning { .. }));
++        }
+         _ => {}
+     }
+ }
+@@ -290,6 +306,15 @@ where
+     }
+ }
+ 
++fn remove_last_matching<F>(items: &mut Vec<ResponseItem>, predicate: F)
++where
++    F: Fn(&ResponseItem) -> bool,
++{
++    if let Some(pos) = items.iter().rposition(predicate) {
++        items.remove(pos);
++    }
++}
++
+ /// Strip image content from messages and tool outputs when the model does not support images.
+ /// When `input_modalities` contains `InputModality::Image`, no stripping is performed.
+ pub(crate) fn strip_images_when_unsupported(
+diff --git a/codex-rs/core/src/mcp_tool_call_tests.rs b/codex-rs/core/src/mcp_tool_call_tests.rs
+index 201a162ef..a629da417 100644
+--- a/codex-rs/core/src/mcp_tool_call_tests.rs
++++ b/codex-rs/core/src/mcp_tool_call_tests.rs
+@@ -1,5 +1,6 @@
+ use super::*;
+ use crate::codex::make_session_and_context;
++use base64::prelude::*;
+ use crate::codex::make_session_and_context_with_rx;
+ use crate::config::ConfigBuilder;
+ use crate::state::ActiveTurn;
+@@ -45,6 +46,14 @@ fn annotations(
+     }
+ }
+ 
++/// Azure fork: decode the Base64-encoded turn metadata header and parse as JSON.
++fn decode_turn_metadata_json(header: &str) -> serde_json::Value {
++    let decoded = BASE64_STANDARD
++        .decode(header)
++        .expect("x-codex-turn-metadata should be valid Base64");
++    serde_json::from_slice(&decoded).expect("x-codex-turn-metadata should decode to valid JSON")
++}
++
+ fn approval_metadata(
+     connector_id: Option<&str>,
+     connector_name: Option<&str>,
+@@ -552,13 +561,12 @@ fn sanitize_mcp_tool_result_for_model_preserves_image_when_supported() {
+ #[tokio::test]
+ async fn mcp_tool_call_request_meta_includes_turn_metadata_for_custom_server() {
+     let (_, turn_context) = make_session_and_context().await;
+-    let expected_turn_metadata = serde_json::from_str::<serde_json::Value>(
++    let expected_turn_metadata = decode_turn_metadata_json(
+         &turn_context
+             .turn_metadata_state
+             .current_header_value()
+             .expect("turn metadata header"),
+-    )
+-    .expect("turn metadata json");
++    );
+ 
+     let meta =
+         build_mcp_tool_call_request_meta(&turn_context, "custom_server", /*metadata*/ None)
+@@ -575,13 +583,12 @@ async fn mcp_tool_call_request_meta_includes_turn_metadata_for_custom_server() {
+ #[tokio::test]
+ async fn codex_apps_tool_call_request_meta_includes_turn_metadata_and_codex_apps_meta() {
+     let (_, turn_context) = make_session_and_context().await;
+-    let expected_turn_metadata = serde_json::from_str::<serde_json::Value>(
++    let expected_turn_metadata = decode_turn_metadata_json(
+         &turn_context
+             .turn_metadata_state
+             .current_header_value()
+             .expect("turn metadata header"),
+-    )
+-    .expect("turn metadata json");
++    );
+     let metadata = McpToolApprovalMetadata {
+         annotations: None,
+         connector_id: Some("calendar".to_string()),
+diff --git a/codex-rs/core/src/turn_metadata.rs b/codex-rs/core/src/turn_metadata.rs
+index 59b146408..f6b503b9b 100644
+--- a/codex-rs/core/src/turn_metadata.rs
++++ b/codex-rs/core/src/turn_metadata.rs
+@@ -69,7 +69,12 @@ pub(crate) struct TurnMetadataBag {
+ 
+ impl TurnMetadataBag {
+     fn to_header_value(&self) -> Option<String> {
+-        serde_json::to_string(self).ok()
++        // Azure fork: encode turn metadata as Base64 so HTTP headers stay ASCII-safe.
++        use base64::prelude::*;
++
++        serde_json::to_string(self)
++            .ok()
++            .map(|json| BASE64_STANDARD.encode(json))
+     }
+ }
+ 
+@@ -77,14 +82,19 @@ fn merge_responsesapi_client_metadata(
+     header: &str,
+     responsesapi_client_metadata: Option<&HashMap<String, String>>,
+ ) -> Option<String> {
++    use base64::prelude::*;
++
+     let responsesapi_client_metadata = responsesapi_client_metadata?;
+-    let mut metadata = serde_json::from_str::<serde_json::Map<String, Value>>(header).ok()?;
++    let decoded = BASE64_STANDARD.decode(header).ok()?;
++    let mut metadata = serde_json::from_slice::<serde_json::Map<String, Value>>(&decoded).ok()?;
+     for (key, value) in responsesapi_client_metadata {
+         metadata
+             .entry(key.clone())
+             .or_insert_with(|| Value::String(value.clone()));
+     }
+-    serde_json::to_string(&metadata).ok()
++    serde_json::to_string(&metadata)
++        .ok()
++        .map(|json| BASE64_STANDARD.encode(json))
+ }
+ 
+ fn build_turn_metadata_bag(
+@@ -213,8 +223,11 @@ impl TurnMetadataState {
+     }
+ 
+     pub(crate) fn current_meta_value(&self) -> Option<serde_json::Value> {
++        use base64::prelude::*;
++
+         self.current_header_value()
+-            .and_then(|header| serde_json::from_str(&header).ok())
++            .and_then(|header| BASE64_STANDARD.decode(header).ok())
++            .and_then(|decoded| serde_json::from_slice(&decoded).ok())
+     }
+ 
+     pub(crate) fn set_responsesapi_client_metadata(
+diff --git a/codex-rs/core/src/turn_metadata_tests.rs b/codex-rs/core/src/turn_metadata_tests.rs
+index 998aa8174..43e0cd3d1 100644
+--- a/codex-rs/core/src/turn_metadata_tests.rs
++++ b/codex-rs/core/src/turn_metadata_tests.rs
+@@ -9,6 +9,16 @@ use std::collections::HashMap;
+ use tempfile::TempDir;
+ use tokio::process::Command;
+ 
++/// Azure fork: decode the Base64-encoded turn metadata header into a JSON Value.
++fn decode_turn_metadata_json(header: &str) -> Value {
++    use base64::prelude::*;
++    let bytes = BASE64_STANDARD
++        .decode(header)
++        .expect("turn metadata should be valid base64");
++    let json_str = String::from_utf8(bytes).expect("turn metadata should be valid UTF-8");
++    serde_json::from_str(&json_str).expect("turn metadata should be valid JSON")
++}
++
+ #[tokio::test]
+ async fn build_turn_metadata_header_includes_has_changes_for_clean_repo() {
+     let temp_dir = TempDir::new().expect("temp dir");
+@@ -51,7 +61,7 @@ async fn build_turn_metadata_header_includes_has_changes_for_clean_repo() {
+     let header = build_turn_metadata_header(&repo_path, Some("none"))
+         .await
+         .expect("header");
+-    let parsed: Value = serde_json::from_str(&header).expect("valid json");
++    let parsed: Value = decode_turn_metadata_json(&header);
+     let workspace = parsed
+         .get("workspaces")
+         .and_then(Value::as_object)
+@@ -81,7 +91,7 @@ fn turn_metadata_state_uses_platform_sandbox_tag() {
+     );
+ 
+     let header = state.current_header_value().expect("header");
+-    let json: Value = serde_json::from_str(&header).expect("json");
++    let json: Value = decode_turn_metadata_json(&header);
+     let sandbox_name = json.get("sandbox").and_then(Value::as_str);
+     let session_id = json.get("session_id").and_then(Value::as_str);
+     let thread_source = json.get("thread_source").and_then(Value::as_str);
+@@ -110,7 +120,7 @@ fn turn_metadata_state_classifies_subagent_thread_source() {
+     );
+ 
+     let header = state.current_header_value().expect("header");
+-    let json: Value = serde_json::from_str(&header).expect("json");
++    let json: Value = decode_turn_metadata_json(&header);
+ 
+     assert_eq!(json["thread_source"].as_str(), Some("subagent"));
+     assert!(json.get("session_source").is_none());
+@@ -137,7 +147,7 @@ fn turn_metadata_state_merges_client_metadata_without_replacing_reserved_fields(
+     ]));
+ 
+     let header = state.current_header_value().expect("header");
+-    let json: Value = serde_json::from_str(&header).expect("json");
++    let json: Value = decode_turn_metadata_json(&header);
+ 
+     assert_eq!(json["fiber_run_id"].as_str(), Some("fiber-123"));
+     assert_eq!(json["session_id"].as_str(), Some("session-a"));
+diff --git a/codex-rs/core/tests/responses_headers.rs b/codex-rs/core/tests/responses_headers.rs
+index 849895651..e8eed5480 100644
+--- a/codex-rs/core/tests/responses_headers.rs
++++ b/codex-rs/core/tests/responses_headers.rs
+@@ -23,6 +23,17 @@ use pretty_assertions::assert_eq;
+ use tempfile::TempDir;
+ use wiremock::matchers::header;
+ 
++/// Azure fork: decode the Base64-encoded x-codex-turn-metadata header.
++fn decode_turn_metadata_header(header: &str) -> String {
++    use base64::prelude::*;
++
++    BASE64_STANDARD
++        .decode(header)
++        .map_err(|e| format!("Failed to decode base64: {e}"))
++        .and_then(|bytes| String::from_utf8(bytes).map_err(|e| e.to_string()))
++        .expect("x-codex-turn-metadata should be valid Base64-encoded UTF-8")
++}
++
+ fn normalize_git_remote_url(url: &str) -> String {
+     let normalized = url.trim().trim_end_matches('/');
+     normalized
+@@ -420,8 +431,9 @@ async fn responses_stream_includes_turn_metadata_header_for_git_workspace_e2e()
+         .single_request()
+         .header("x-codex-turn-metadata")
+         .expect("x-codex-turn-metadata header should be present");
++    let initial_decoded = decode_turn_metadata_header(&initial_header);
+     let initial_parsed: serde_json::Value =
+-        serde_json::from_str(&initial_header).expect("x-codex-turn-metadata should be valid JSON");
++        serde_json::from_str(&initial_decoded).expect("x-codex-turn-metadata should be valid JSON");
+     let initial_turn_id = initial_parsed
+         .get("turn_id")
+         .and_then(serde_json::Value::as_str)
+@@ -513,18 +525,18 @@ async fn responses_stream_includes_turn_metadata_header_for_git_workspace_e2e()
+     let requests = request_log.requests();
+     assert_eq!(requests.len(), 2, "expected two requests in one turn");
+ 
+-    let first_parsed: serde_json::Value = serde_json::from_str(
+-        &requests[0]
+-            .header("x-codex-turn-metadata")
+-            .expect("first request should include turn metadata"),
+-    )
+-    .expect("first metadata should be valid json");
+-    let second_parsed: serde_json::Value = serde_json::from_str(
+-        &requests[1]
+-            .header("x-codex-turn-metadata")
+-            .expect("second request should include turn metadata"),
+-    )
+-    .expect("second metadata should be valid json");
++    let first_header = requests[0]
++        .header("x-codex-turn-metadata")
++        .expect("first request should include turn metadata");
++    let first_decoded = decode_turn_metadata_header(&first_header);
++    let first_parsed: serde_json::Value =
++        serde_json::from_str(&first_decoded).expect("first metadata should be valid json");
++    let second_header = requests[1]
++        .header("x-codex-turn-metadata")
++        .expect("second request should include turn metadata");
++    let second_decoded = decode_turn_metadata_header(&second_header);
++    let second_parsed: serde_json::Value =
++        serde_json::from_str(&second_decoded).expect("second metadata should be valid json");
+ 
+     let first_turn_id = first_parsed
+         .get("turn_id")
+diff --git a/codex-rs/core/tests/suite/client.rs b/codex-rs/core/tests/suite/client.rs
+index 7811654a2..cd3d28e53 100644
+--- a/codex-rs/core/tests/suite/client.rs
++++ b/codex-rs/core/tests/suite/client.rs
+@@ -2275,19 +2275,19 @@ async fn azure_responses_request_includes_store_and_reasoning_ids() {
+     assert_eq!(request.path(), "/openai/responses");
+     let body = request.body_json();
+ 
+-    assert_eq!(body["store"], serde_json::Value::Bool(true));
++    assert_eq!(body["store"], serde_json::Value::Bool(false));
+     assert_eq!(body["stream"], serde_json::Value::Bool(true));
+     assert_eq!(body["input"].as_array().map(Vec::len), Some(8));
+-    assert_eq!(body["input"][0]["id"].as_str(), Some("reasoning-id"));
+-    assert_eq!(body["input"][1]["id"].as_str(), Some("message-id"));
+-    assert_eq!(body["input"][2]["id"].as_str(), Some("web-search-id"));
+-    assert_eq!(body["input"][3]["id"].as_str(), Some("function-id"));
++    assert_eq!(body["input"][0]["id"].as_str(), None);
++    assert_eq!(body["input"][1]["id"].as_str(), None);
++    assert_eq!(body["input"][2]["id"].as_str(), None);
++    assert_eq!(body["input"][3]["id"].as_str(), None);
+     assert_eq!(
+         body["input"][4]["call_id"].as_str(),
+         Some("function-call-id")
+     );
+-    assert_eq!(body["input"][5]["id"].as_str(), Some("local-shell-id"));
+-    assert_eq!(body["input"][6]["id"].as_str(), Some("custom-tool-id"));
++    assert_eq!(body["input"][5]["id"].as_str(), None);
++    assert_eq!(body["input"][6]["id"].as_str(), None);
+     assert_eq!(
+         body["input"][7]["call_id"].as_str(),
+         Some("custom-tool-call-id")
+diff --git a/codex-rs/core/tests/suite/client_websockets.rs b/codex-rs/core/tests/suite/client_websockets.rs
+index eaa8a9610..7f3274dbb 100755
+--- a/codex-rs/core/tests/suite/client_websockets.rs
++++ b/codex-rs/core/tests/suite/client_websockets.rs
+@@ -57,6 +57,22 @@ const WS_V2_BETA_HEADER_VALUE: &str = "responses_websockets=2026-02-06";
+ const X_CLIENT_REQUEST_ID_HEADER: &str = "x-client-request-id";
+ const TEST_INSTALLATION_ID: &str = "11111111-1111-4111-8111-111111111111";
+ 
++/// Azure fork: encode x-codex-turn-metadata as Base64 before it is forwarded.
++fn encode_turn_metadata_header(json: &str) -> String {
++    use base64::prelude::*;
++
++    BASE64_STANDARD.encode(json)
++}
++
++fn decode_turn_metadata_header(header: &str) -> serde_json::Value {
++    use base64::prelude::*;
++
++    let decoded = BASE64_STANDARD
++        .decode(header)
++        .expect("x-codex-turn-metadata should be valid Base64");
++    serde_json::from_slice(&decoded).expect("x-codex-turn-metadata should decode to valid JSON")
++}
++
+ fn assert_request_trace_matches(body: &serde_json::Value, expected_trace: &W3cTraceContext) {
+     let client_metadata = body["client_metadata"]
+         .as_object()
+@@ -1209,9 +1225,11 @@ async fn responses_websocket_forwards_turn_metadata_on_initial_and_incremental_c
+ 
+     let harness = websocket_harness(&server).await;
+     let mut client_session = harness.client.new_session();
+-    let first_turn_metadata =
++    let first_turn_metadata_json =
+         r#"{"turn_id":"turn-123","thread_source":"user","sandbox":"workspace-write"}"#;
+-    let enriched_turn_metadata = r#"{"turn_id":"turn-123","thread_source":"user","sandbox":"workspace-write","workspaces":[{"root_path":"/tmp/repo","latest_git_commit_hash":"abc123","associated_remote_urls":["git@github.com:openai/codex.git"],"has_changes":true}]}"#;
++    let enriched_turn_metadata_json = r#"{"turn_id":"turn-123","thread_source":"user","sandbox":"workspace-write","workspaces":[{"root_path":"/tmp/repo","latest_git_commit_hash":"abc123","associated_remote_urls":["git@github.com:openai/codex.git"],"has_changes":true}]}"#;
++    let first_turn_metadata = encode_turn_metadata_header(first_turn_metadata_json);
++    let enriched_turn_metadata = encode_turn_metadata_header(enriched_turn_metadata_json);
+     let prompt_one = prompt_with_input(vec![message_item("hello")]);
+     let prompt_two = prompt_with_input(vec![
+         message_item("hello"),
+@@ -1224,7 +1242,7 @@ async fn responses_websocket_forwards_turn_metadata_on_initial_and_incremental_c
+         &harness,
+         &prompt_one,
+         /*service_tier*/ None,
+-        Some(first_turn_metadata),
++        Some(first_turn_metadata.as_str()),
+     )
+     .await;
+     stream_until_complete_with_turn_metadata(
+@@ -1232,7 +1250,7 @@ async fn responses_websocket_forwards_turn_metadata_on_initial_and_incremental_c
+         &harness,
+         &prompt_two,
+         /*service_tier*/ None,
+-        Some(enriched_turn_metadata),
++        Some(enriched_turn_metadata.as_str()),
+     )
+     .await;
+ 
+@@ -1244,18 +1262,18 @@ async fn responses_websocket_forwards_turn_metadata_on_initial_and_incremental_c
+     assert_eq!(first["type"].as_str(), Some("response.create"));
+     assert_eq!(
+         first["client_metadata"]["x-codex-turn-metadata"].as_str(),
+-        Some(first_turn_metadata)
++        Some(first_turn_metadata.as_str())
+     );
+     assert_eq!(second["type"].as_str(), Some("response.create"));
+     assert_eq!(second["previous_response_id"].as_str(), Some("resp-1"));
+     assert_eq!(
+         second["client_metadata"]["x-codex-turn-metadata"].as_str(),
+-        Some(enriched_turn_metadata)
++        Some(enriched_turn_metadata.as_str())
+     );
+ 
+-    let first_metadata: serde_json::Value =
+-        serde_json::from_str(first_turn_metadata).expect("first metadata should be valid json");
+-    let second_metadata: serde_json::Value = serde_json::from_str(enriched_turn_metadata)
++    let first_metadata: serde_json::Value = serde_json::from_str(first_turn_metadata_json)
++        .expect("first metadata should be valid json");
++    let second_metadata: serde_json::Value = serde_json::from_str(enriched_turn_metadata_json)
+         .expect("enriched metadata should be valid json");
+ 
+     assert_eq!(first_metadata["turn_id"].as_str(), Some("turn-123"));
+@@ -1283,19 +1301,21 @@ async fn responses_websocket_preserves_custom_turn_metadata_fields() {
+     let harness = websocket_harness(&server).await;
+     let mut client_session = harness.client.new_session();
+     let prompt = prompt_with_input(vec![message_item("hello")]);
+-    let turn_metadata = json!({
+-        "turn_id": "turn-123",
+-        "fiber_run_id": "fiber-123",
+-        "origin": "app-server",
+-    })
+-    .to_string();
++    let turn_metadata = encode_turn_metadata_header(
++        &json!({
++            "turn_id": "turn-123",
++            "fiber_run_id": "fiber-123",
++            "origin": "app-server",
++        })
++        .to_string(),
++    );
+ 
+     stream_until_complete_with_turn_metadata(
+         &mut client_session,
+         &harness,
+         &prompt,
+         /*service_tier*/ None,
+-        Some(&turn_metadata),
++        Some(turn_metadata.as_str()),
+     )
+     .await;
+ 
+@@ -1309,7 +1329,7 @@ async fn responses_websocket_preserves_custom_turn_metadata_fields() {
+     assert_eq!(
+         body["client_metadata"]["x-codex-turn-metadata"]
+             .as_str()
+-            .map(|value| serde_json::from_str::<serde_json::Value>(value).expect("valid json")),
++            .map(decode_turn_metadata_header),
+         Some(json!({
+             "turn_id": "turn-123",
+             "fiber_run_id": "fiber-123",
+diff --git a/codex-rs/core/tests/suite/turn_state.rs b/codex-rs/core/tests/suite/turn_state.rs
+index 7a930af60..3cd9c3d3b 100644
+--- a/codex-rs/core/tests/suite/turn_state.rs
++++ b/codex-rs/core/tests/suite/turn_state.rs
+@@ -19,6 +19,17 @@ use serde_json::Value;
+ 
+ const TURN_STATE_HEADER: &str = "x-codex-turn-state";
+ 
++/// Azure fork: decode the Base64-encoded x-codex-turn-metadata header.
++fn decode_turn_metadata_header(header: &str) -> String {
++    use base64::prelude::*;
++
++    BASE64_STANDARD
++        .decode(header)
++        .map_err(|e| format!("Failed to decode base64: {e}"))
++        .and_then(|bytes| String::from_utf8(bytes).map_err(|e| e.to_string()))
++        .expect("x-codex-turn-metadata should be valid Base64-encoded UTF-8")
++}
++
+ #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+ async fn responses_turn_state_persists_within_turn_and_resets_after() -> Result<()> {
+     skip_if_no_network!(Ok(()));
+@@ -67,7 +78,8 @@ async fn responses_turn_state_persists_within_turn_and_resets_after() -> Result<
+ 
+     let parse_turn_id = |header: Option<String>| {
+         let value = header?;
+-        let parsed: Value = serde_json::from_str(&value).ok()?;
++        let decoded = decode_turn_metadata_header(&value);
++        let parsed: Value = serde_json::from_str(&decoded).ok()?;
+         parsed
+             .get("turn_id")
+             .and_then(Value::as_str)
+diff --git a/codex-rs/model-provider-info/src/lib.rs b/codex-rs/model-provider-info/src/lib.rs
+index f39ff0c7f..0dd57fa21 100644
+--- a/codex-rs/model-provider-info/src/lib.rs
++++ b/codex-rs/model-provider-info/src/lib.rs
+@@ -300,6 +300,10 @@ impl ModelProviderInfo {
+         self.name == OPENAI_PROVIDER_NAME
+     }
+ 
++    pub fn is_azure_responses_endpoint(&self) -> bool {
++        codex_api::is_azure_responses_provider(&self.name, self.base_url.as_deref())
++    }
++
+     pub fn has_command_auth(&self) -> bool {
+         self.auth.is_some()
+     }
+diff --git a/codex-rs/protocol/src/models.rs b/codex-rs/protocol/src/models.rs
+index 0f18b6839..cf2a0df81 100644
+--- a/codex-rs/protocol/src/models.rs
++++ b/codex-rs/protocol/src/models.rs
+@@ -187,7 +187,7 @@ pub enum MessagePhase {
+ #[serde(tag = "type", rename_all = "snake_case")]
+ pub enum ResponseItem {
+     Message {
+-        #[serde(default, skip_serializing)]
++        #[serde(default, skip_serializing_if = "Option::is_none")]
+         #[ts(skip)]
+         id: Option<String>,
+         role: String,
+@@ -204,7 +204,7 @@ pub enum ResponseItem {
+         phase: Option<MessagePhase>,
+     },
+     Reasoning {
+-        #[serde(default, skip_serializing)]
++        #[serde(default, skip_serializing_if = "String::is_empty")]
+         #[ts(skip)]
+         #[schemars(skip)]
+         id: String,
+@@ -216,7 +216,7 @@ pub enum ResponseItem {
+     },
+     LocalShellCall {
+         /// Legacy id field retained for compatibility with older payloads.
+-        #[serde(default, skip_serializing)]
++        #[serde(default, skip_serializing_if = "Option::is_none")]
+         #[ts(skip)]
+         id: Option<String>,
+         /// Set when using the Responses API.
+@@ -225,7 +225,7 @@ pub enum ResponseItem {
+         action: LocalShellAction,
+     },
+     FunctionCall {
+-        #[serde(default, skip_serializing)]
++        #[serde(default, skip_serializing_if = "Option::is_none")]
+         #[ts(skip)]
+         id: Option<String>,
+         name: String,
+@@ -239,7 +239,7 @@ pub enum ResponseItem {
+         call_id: String,
+     },
+     ToolSearchCall {
+-        #[serde(default, skip_serializing)]
++        #[serde(default, skip_serializing_if = "Option::is_none")]
+         #[ts(skip)]
+         id: Option<String>,
+         call_id: Option<String>,
+@@ -262,7 +262,7 @@ pub enum ResponseItem {
+         output: FunctionCallOutputPayload,
+     },
+     CustomToolCall {
+-        #[serde(default, skip_serializing)]
++        #[serde(default, skip_serializing_if = "Option::is_none")]
+         #[ts(skip)]
+         id: Option<String>,
+         #[serde(default, skip_serializing_if = "Option::is_none")]
+@@ -301,7 +301,7 @@ pub enum ResponseItem {
+     //   "action": {"type":"search","query":"weather: San Francisco, CA"}
+     // }
+     WebSearchCall {
+-        #[serde(default, skip_serializing)]
++        #[serde(default, skip_serializing_if = "Option::is_none")]
+         #[ts(skip)]
+         id: Option<String>,
+         #[serde(default, skip_serializing_if = "Option::is_none")]
+@@ -782,7 +782,7 @@ fn should_serialize_reasoning_content(content: &Option<Vec<ReasoningItemContent>
+         Some(content) => !content
+             .iter()
+             .any(|c| matches!(c, ReasoningItemContent::ReasoningText { .. })),
+-        None => false,
++        None => true,
+     }
+ }
+ 
+@@ -2378,7 +2378,7 @@ mod tests {
+             ),
+         ];
+ 
+-        for (json_literal, expected_id, expected_action, expected_status, expect_roundtrip) in cases
++        for (json_literal, expected_id, expected_action, expected_status, _expect_roundtrip) in cases
+         {
+             let parsed: ResponseItem = serde_json::from_str(json_literal)?;
+             let expected = ResponseItem::WebSearchCall {
+@@ -2389,10 +2389,7 @@ mod tests {
+             assert_eq!(parsed, expected);
+ 
+             let serialized = serde_json::to_value(&parsed)?;
+-            let mut expected_serialized: serde_json::Value = serde_json::from_str(json_literal)?;
+-            if !expect_roundtrip && let Some(obj) = expected_serialized.as_object_mut() {
+-                obj.remove("id");
+-            }
++            let expected_serialized: serde_json::Value = serde_json::from_str(json_literal)?;
+             assert_eq!(serialized, expected_serialized);
+         }
+ 
+diff --git a/codex-rs/tools/src/tool_spec.rs b/codex-rs/tools/src/tool_spec.rs
+index 81db2f558..b2c80c838 100644
+--- a/codex-rs/tools/src/tool_spec.rs
++++ b/codex-rs/tools/src/tool_spec.rs
+@@ -52,7 +52,7 @@ pub enum ToolSpec {
+         #[serde(skip_serializing_if = "Option::is_none")]
+         search_content_types: Option<Vec<String>>,
+     },
+-    #[serde(rename = "custom")]
++    #[serde(rename = "function")]
+     Freeform(FreeformTool),
+ }
+ 

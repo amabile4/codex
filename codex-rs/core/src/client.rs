@@ -832,7 +832,7 @@ impl ModelClientSession {
         } else {
             None
         };
-        let include = if reasoning.is_some() {
+        let include = if reasoning.is_some() && !provider.is_azure_responses_endpoint() {
             vec!["reasoning.encrypted_content".to_string()]
         } else {
             Vec::new()
@@ -871,10 +871,14 @@ impl ModelClientSession {
             },
             prompt_cache_key,
             text,
-            client_metadata: Some(HashMap::from([(
-                X_CODEX_INSTALLATION_ID_HEADER.to_string(),
-                self.client.state.installation_id.clone(),
-            )])),
+            client_metadata: if !provider.is_azure_responses_endpoint() {
+                Some(HashMap::from([(
+                    X_CODEX_INSTALLATION_ID_HEADER.to_string(),
+                    self.client.state.installation_id.clone(),
+                )]))
+            } else {
+                None
+            },
         };
         Ok(request)
     }
@@ -1491,12 +1495,17 @@ impl ModelClientSession {
     }
 }
 
-/// Parses per-turn metadata into an HTTP header value.
+/// Parses the already-encoded per-turn metadata into an HTTP header value.
 ///
 /// Invalid values are treated as absent so callers can compare and propagate
-/// metadata with the same sanitization path used when constructing headers.
+/// metadata with the same Base64 sanitization path used when constructing
+/// headers.
 fn parse_turn_metadata_header(turn_metadata_header: Option<&str>) -> Option<HeaderValue> {
-    turn_metadata_header.and_then(|value| HeaderValue::from_str(value).ok())
+    use base64::prelude::*;
+
+    turn_metadata_header
+        .filter(|value| BASE64_STANDARD.decode(value).is_ok())
+        .and_then(|value| HeaderValue::from_str(value).ok())
 }
 
 /// Builds the extra headers attached to Responses API requests.

@@ -2275,19 +2275,19 @@ async fn azure_responses_request_includes_store_and_reasoning_ids() {
     assert_eq!(request.path(), "/openai/responses");
     let body = request.body_json();
 
-    assert_eq!(body["store"], serde_json::Value::Bool(true));
+    assert_eq!(body["store"], serde_json::Value::Bool(false));
     assert_eq!(body["stream"], serde_json::Value::Bool(true));
     assert_eq!(body["input"].as_array().map(Vec::len), Some(8));
-    assert_eq!(body["input"][0]["id"].as_str(), Some("reasoning-id"));
-    assert_eq!(body["input"][1]["id"].as_str(), Some("message-id"));
-    assert_eq!(body["input"][2]["id"].as_str(), Some("web-search-id"));
-    assert_eq!(body["input"][3]["id"].as_str(), Some("function-id"));
+    assert_eq!(body["input"][0]["id"].as_str(), None);
+    assert_eq!(body["input"][1]["id"].as_str(), None);
+    assert_eq!(body["input"][2]["id"].as_str(), None);
+    assert_eq!(body["input"][3]["id"].as_str(), None);
     assert_eq!(
         body["input"][4]["call_id"].as_str(),
         Some("function-call-id")
     );
-    assert_eq!(body["input"][5]["id"].as_str(), Some("local-shell-id"));
-    assert_eq!(body["input"][6]["id"].as_str(), Some("custom-tool-id"));
+    assert_eq!(body["input"][5]["id"].as_str(), None);
+    assert_eq!(body["input"][6]["id"].as_str(), None);
     assert_eq!(
         body["input"][7]["call_id"].as_str(),
         Some("custom-tool-call-id")

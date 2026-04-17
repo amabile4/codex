@@ -7,6 +7,7 @@ use super::X_CODEX_PARENT_THREAD_ID_HEADER;
 use super::X_CODEX_TURN_METADATA_HEADER;
 use super::X_CODEX_WINDOW_ID_HEADER;
 use super::X_OPENAI_SUBAGENT_HEADER;
+use base64::prelude::*;
 use codex_api::CoreAuthProvider;
 use codex_app_server_protocol::AuthMode;
 use codex_model_provider_info::WireApi;
@@ -104,7 +105,8 @@ fn build_ws_client_metadata_includes_window_lineage_and_turn_metadata() {
 
     client.advance_window_generation();
 
-    let client_metadata = client.build_ws_client_metadata(Some(r#"{"turn_id":"turn-123"}"#));
+    let turn_metadata = BASE64_STANDARD.encode(r#"{"turn_id":"turn-123"}"#);
+    let client_metadata = client.build_ws_client_metadata(Some(turn_metadata.as_str()));
     let conversation_id = client.state.conversation_id;
     assert_eq!(
         client_metadata,
@@ -125,10 +127,7 @@ fn build_ws_client_metadata_includes_window_lineage_and_turn_metadata() {
                 X_CODEX_PARENT_THREAD_ID_HEADER.to_string(),
                 parent_thread_id.to_string(),
             ),
-            (
-                X_CODEX_TURN_METADATA_HEADER.to_string(),
-                r#"{"turn_id":"turn-123"}"#.to_string(),
-            ),
+            (X_CODEX_TURN_METADATA_HEADER.to_string(), turn_metadata,),
         ])
     );
 }
@@ -168,4 +167,38 @@ fn auth_request_telemetry_context_tracks_attached_auth_and_retry_phase() {
     assert!(auth_context.retry_after_unauthorized);
     assert_eq!(auth_context.recovery_mode, Some("managed"));
     assert_eq!(auth_context.recovery_phase, Some("refresh_token"));
+}
+
+#[test]
+fn parse_turn_metadata_header_preserves_base64_for_multibyte_json() {
+    let encoded =
+        BASE64_STANDARD.encode(r#"{"turn_id":"turn-123","label":"邵ｺ阮呻ｽ鍋ｸｺ・ｫ邵ｺ・｡邵ｺ・ｯ"}"#);
+
+    let header = super::parse_turn_metadata_header(Some(encoded.as_str()))
+        .expect("base64-encoded turn metadata should be accepted");
+
+    assert_eq!(header.to_str().ok(), Some(encoded.as_str()));
+}
+
+#[test]
+fn parse_turn_metadata_header_rejects_raw_ascii_json() {
+    let raw_json = r#"{"turn_id":"turn-123","sandbox":"workspace-write"}"#;
+
+    assert_eq!(super::parse_turn_metadata_header(Some(raw_json)), None);
+}
+
+#[test]
+fn build_ws_client_metadata_preserves_base64_for_multibyte_json() {
+    let encoded =
+        BASE64_STANDARD.encode(r#"{"turn_id":"turn-123","label":"邵ｺ阮呻ｽ鍋ｸｺ・ｫ邵ｺ・｡邵ｺ・ｯ"}"#);
+
+    let client_metadata = test_model_client(SessionSource::Cli)
+        .build_ws_client_metadata(Some(encoded.as_str()));
+
+    assert_eq!(
+        client_metadata
+            .get(super::X_CODEX_TURN_METADATA_HEADER)
+            .map(String::as_str),
+        Some(encoded.as_str())
+    );
 }
