@@ -69,7 +69,12 @@ pub(crate) struct TurnMetadataBag {
 
 impl TurnMetadataBag {
     fn to_header_value(&self) -> Option<String> {
-        serde_json::to_string(self).ok()
+        // Azure fork: encode turn metadata as Base64 so HTTP headers stay ASCII-safe.
+        use base64::prelude::*;
+
+        serde_json::to_string(self)
+            .ok()
+            .map(|json| BASE64_STANDARD.encode(json))
     }
 }
 
@@ -77,14 +82,19 @@ fn merge_responsesapi_client_metadata(
     header: &str,
     responsesapi_client_metadata: Option<&HashMap<String, String>>,
 ) -> Option<String> {
+    use base64::prelude::*;
+
     let responsesapi_client_metadata = responsesapi_client_metadata?;
-    let mut metadata = serde_json::from_str::<serde_json::Map<String, Value>>(header).ok()?;
+    let decoded = BASE64_STANDARD.decode(header).ok()?;
+    let mut metadata = serde_json::from_slice::<serde_json::Map<String, Value>>(&decoded).ok()?;
     for (key, value) in responsesapi_client_metadata {
         metadata
             .entry(key.clone())
             .or_insert_with(|| Value::String(value.clone()));
     }
-    serde_json::to_string(&metadata).ok()
+    serde_json::to_string(&metadata)
+        .ok()
+        .map(|json| BASE64_STANDARD.encode(json))
 }
 
 fn build_turn_metadata_bag(
@@ -213,8 +223,11 @@ impl TurnMetadataState {
     }
 
     pub(crate) fn current_meta_value(&self) -> Option<serde_json::Value> {
+        use base64::prelude::*;
+
         self.current_header_value()
-            .and_then(|header| serde_json::from_str(&header).ok())
+            .and_then(|header| BASE64_STANDARD.decode(header).ok())
+            .and_then(|decoded| serde_json::from_slice(&decoded).ok())
     }
 
     pub(crate) fn set_responsesapi_client_metadata(

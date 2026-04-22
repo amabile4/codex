@@ -566,6 +566,66 @@ fn insert_initial_context_before_last_real_user_or_summary_keeps_summary_last() 
     assert_eq!(refreshed, expected);
 }
 
+#[tokio::test]
+async fn process_compacted_history_removes_orphaned_assistant_messages() {
+    let compacted_history = vec![
+        ResponseItem::Message {
+            id: Some("msg_abc".to_string()),
+            role: "assistant".to_string(),
+            content: vec![ContentItem::OutputText {
+                text: "orphaned assistant".to_string(),
+            }],
+            end_turn: None,
+            phase: None,
+        },
+        ResponseItem::Message {
+            id: None,
+            role: "assistant".to_string(),
+            content: vec![ContentItem::OutputText {
+                text: "keep me".to_string(),
+            }],
+            end_turn: None,
+            phase: None,
+        },
+        ResponseItem::Message {
+            id: None,
+            role: "user".to_string(),
+            content: vec![ContentItem::InputText {
+                text: "summary".to_string(),
+            }],
+            end_turn: None,
+            phase: None,
+        },
+    ];
+    let (refreshed, initial_context) = process_compacted_history_with_test_session(
+        compacted_history,
+        /*previous_turn_settings*/ None,
+    )
+    .await;
+    // The assistant with a server-assigned ID (msg_abc) is removed because its
+    // Reasoning pair was stripped. The assistant with id=None is preserved.
+    let mut expected = vec![ResponseItem::Message {
+        id: None,
+        role: "assistant".to_string(),
+        content: vec![ContentItem::OutputText {
+            text: "keep me".to_string(),
+        }],
+        end_turn: None,
+        phase: None,
+    }];
+    expected.extend(initial_context);
+    expected.push(ResponseItem::Message {
+        id: None,
+        role: "user".to_string(),
+        content: vec![ContentItem::InputText {
+            text: "summary".to_string(),
+        }],
+        end_turn: None,
+        phase: None,
+    });
+    assert_eq!(refreshed, expected);
+}
+
 #[test]
 fn insert_initial_context_before_last_real_user_or_summary_keeps_compaction_last() {
     let compacted_history = vec![ResponseItem::Compaction {

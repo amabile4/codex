@@ -277,6 +277,14 @@ pub(crate) fn remove_corresponding_for(items: &mut Vec<ResponseItem>, item: &Res
                 )
             });
         }
+        ResponseItem::Reasoning { .. } => {
+            remove_first_matching(items, |i| {
+                matches!(i, ResponseItem::Message { role, .. } if role == "assistant")
+            });
+        }
+        ResponseItem::Message { role, .. } if role == "assistant" => {
+            remove_last_matching(items, |i| matches!(i, ResponseItem::Reasoning { .. }));
+        }
         _ => {}
     }
 }
@@ -286,6 +294,15 @@ where
     F: Fn(&ResponseItem) -> bool,
 {
     if let Some(pos) = items.iter().position(predicate) {
+        items.remove(pos);
+    }
+}
+
+fn remove_last_matching<F>(items: &mut Vec<ResponseItem>, predicate: F)
+where
+    F: Fn(&ResponseItem) -> bool,
+{
+    if let Some(pos) = items.iter().rposition(predicate) {
         items.remove(pos);
     }
 }

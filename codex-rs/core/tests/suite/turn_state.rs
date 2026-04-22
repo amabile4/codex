@@ -17,6 +17,15 @@ use core_test_support::test_codex::test_codex;
 use pretty_assertions::assert_eq;
 use serde_json::Value;
 
+fn decode_turn_metadata_header(header: &str) -> serde_json::Value {
+    use base64::prelude::*;
+    let decoded = BASE64_STANDARD
+        .decode(header)
+        .expect("x-codex-turn-metadata should be valid Base64");
+    let json_str = String::from_utf8(decoded).expect("x-codex-turn-metadata should be valid UTF-8");
+    serde_json::from_str(&json_str).expect("x-codex-turn-metadata should be valid JSON")
+}
+
 const TURN_STATE_HEADER: &str = "x-codex-turn-state";
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -67,7 +76,7 @@ async fn responses_turn_state_persists_within_turn_and_resets_after() -> Result<
 
     let parse_turn_id = |header: Option<String>| {
         let value = header?;
-        let parsed: Value = serde_json::from_str(&value).ok()?;
+        let parsed = decode_turn_metadata_header(&value);
         parsed
             .get("turn_id")
             .and_then(Value::as_str)
