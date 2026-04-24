@@ -251,7 +251,34 @@ pub(crate) async fn process_compacted_history(
     };
 
     compacted_history.retain(should_keep_compacted_history_item);
+    remove_orphaned_assistant_messages(&mut compacted_history);
     insert_initial_context_before_last_real_user_or_summary(compacted_history, initial_context)
+}
+
+/// Removes assistant `Message` items that lost their paired `Reasoning` during
+/// the `retain()` pass. The Azure Responses API rejects a message whose
+/// reasoning was stripped:
+///
+///   "Item 'msg_…' of type 'message' was provided without its required
+///    'reasoning' item: 'rs_…'"
+fn remove_orphaned_assistant_messages(items: &mut Vec<ResponseItem>) {
+    let mut i = 0;
+    while i < items.len() {
+        if let ResponseItem::Message {
+            id: Some(_), role, ..
+        } = &items[i]
+        {
+            if role == "assistant" {
+                let preceded_by_reasoning =
+                    i > 0 && matches!(&items[i - 1], ResponseItem::Reasoning { .. });
+                if !preceded_by_reasoning {
+                    items.remove(i);
+                    continue;
+                }
+            }
+        }
+        i += 1;
+    }
 }
 
 /// Returns whether an item from remote compaction output should be preserved.

@@ -33,6 +33,15 @@ use tracing::Instrument;
 use tracing::Level;
 use tracing_subscriber::fmt::format::FmtSpan;
 use tracing_test::internal::MockWriter;
+use base64::prelude::*;
+
+fn decode_turn_metadata_json(header: &str) -> serde_json::Value {
+    let bytes = BASE64_STANDARD
+        .decode(header)
+        .expect("turn metadata should be valid base64");
+    let json_str = String::from_utf8(bytes).expect("turn metadata should be valid UTF-8");
+    serde_json::from_str(&json_str).expect("turn metadata should be valid JSON")
+}
 
 fn annotations(
     read_only: Option<bool>,
@@ -660,13 +669,12 @@ fn sanitize_mcp_tool_result_for_model_preserves_image_when_supported() {
 #[tokio::test]
 async fn mcp_tool_call_request_meta_includes_turn_metadata_for_custom_server() {
     let (_, turn_context) = make_session_and_context().await;
-    let expected_turn_metadata = serde_json::from_str::<serde_json::Value>(
+    let expected_turn_metadata = decode_turn_metadata_json(
         &turn_context
             .turn_metadata_state
             .current_header_value()
             .expect("turn metadata header"),
-    )
-    .expect("turn metadata json");
+    );
 
     let meta =
         build_mcp_tool_call_request_meta(&turn_context, "custom_server", /*metadata*/ None)
@@ -683,13 +691,12 @@ async fn mcp_tool_call_request_meta_includes_turn_metadata_for_custom_server() {
 #[tokio::test]
 async fn codex_apps_tool_call_request_meta_includes_turn_metadata_and_codex_apps_meta() {
     let (_, turn_context) = make_session_and_context().await;
-    let expected_turn_metadata = serde_json::from_str::<serde_json::Value>(
+    let expected_turn_metadata = decode_turn_metadata_json(
         &turn_context
             .turn_metadata_state
             .current_header_value()
             .expect("turn metadata header"),
-    )
-    .expect("turn metadata json");
+    );
     let metadata = McpToolApprovalMetadata {
         annotations: None,
         connector_id: Some("calendar".to_string()),

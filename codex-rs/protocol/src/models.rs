@@ -446,7 +446,7 @@ pub enum MessagePhase {
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ResponseItem {
     Message {
-        #[serde(default, skip_serializing)]
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         #[ts(skip)]
         id: Option<String>,
         role: String,
@@ -463,7 +463,7 @@ pub enum ResponseItem {
         phase: Option<MessagePhase>,
     },
     Reasoning {
-        #[serde(default, skip_serializing)]
+        #[serde(default, skip_serializing_if = "String::is_empty")]
         #[ts(skip)]
         #[schemars(skip)]
         id: String,
@@ -475,7 +475,7 @@ pub enum ResponseItem {
     },
     LocalShellCall {
         /// Legacy id field retained for compatibility with older payloads.
-        #[serde(default, skip_serializing)]
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         #[ts(skip)]
         id: Option<String>,
         /// Set when using the Responses API.
@@ -484,7 +484,7 @@ pub enum ResponseItem {
         action: LocalShellAction,
     },
     FunctionCall {
-        #[serde(default, skip_serializing)]
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         #[ts(skip)]
         id: Option<String>,
         name: String,
@@ -677,7 +677,7 @@ fn should_serialize_reasoning_content(content: &Option<Vec<ReasoningItemContent>
         Some(content) => !content
             .iter()
             .any(|c| matches!(c, ReasoningItemContent::ReasoningText { .. })),
-        None => false,
+        None => true,
     }
 }
 
@@ -1995,7 +1995,7 @@ mod tests {
             ),
         ];
 
-        for (json_literal, expected_id, expected_action, expected_status, expect_roundtrip) in cases
+        for (json_literal, expected_id, expected_action, expected_status, _expect_roundtrip) in cases
         {
             let parsed: ResponseItem = serde_json::from_str(json_literal)?;
             let expected = ResponseItem::WebSearchCall {
@@ -2006,10 +2006,7 @@ mod tests {
             assert_eq!(parsed, expected);
 
             let serialized = serde_json::to_value(&parsed)?;
-            let mut expected_serialized: serde_json::Value = serde_json::from_str(json_literal)?;
-            if !expect_roundtrip && let Some(obj) = expected_serialized.as_object_mut() {
-                obj.remove("id");
-            }
+            let expected_serialized: serde_json::Value = serde_json::from_str(json_literal)?;
             assert_eq!(serialized, expected_serialized);
         }
 
