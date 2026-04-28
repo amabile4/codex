@@ -104,7 +104,13 @@ fn build_ws_client_metadata_includes_window_lineage_and_turn_metadata() {
 
     client.advance_window_generation();
 
-    let client_metadata = client.build_ws_client_metadata(Some(r#"{"turn_id":"turn-123"}"#));
+    let encoded_turn_metadata = {
+        use base64::prelude::*;
+
+        BASE64_STANDARD.encode(r#"{"turn_id":"turn-123"}"#)
+    };
+
+    let client_metadata = client.build_ws_client_metadata(Some(&encoded_turn_metadata));
     let conversation_id = client.state.conversation_id;
     assert_eq!(
         client_metadata,
@@ -127,10 +133,31 @@ fn build_ws_client_metadata_includes_window_lineage_and_turn_metadata() {
             ),
             (
                 X_CODEX_TURN_METADATA_HEADER.to_string(),
-                r#"{"turn_id":"turn-123"}"#.to_string(),
+                encoded_turn_metadata,
             ),
         ])
     );
+}
+
+#[test]
+fn parse_turn_metadata_header_preserves_base64_for_multibyte_json() {
+    let encoded = {
+        use base64::prelude::*;
+
+        BASE64_STANDARD.encode(r#"{"turn_id":"turn-123","label":"日本語"}"#)
+    };
+
+    let header = super::parse_turn_metadata_header(Some(encoded.as_str()))
+        .expect("base64-encoded turn metadata should be accepted");
+
+    assert_eq!(header.to_str().ok(), Some(encoded.as_str()));
+}
+
+#[test]
+fn parse_turn_metadata_header_rejects_raw_ascii_json() {
+    let raw_json = r#"{"turn_id":"turn-123","sandbox":"workspace-write"}"#;
+
+    assert_eq!(super::parse_turn_metadata_header(Some(raw_json)), None);
 }
 
 #[tokio::test]

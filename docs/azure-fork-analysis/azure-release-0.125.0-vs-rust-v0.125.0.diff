@@ -1,0 +1,644 @@
+diff --git a/.github/workflows/close-stale-contributor-prs.yml b/.github/workflows/close-stale-contributor-prs.yml
+index 8fb5132772..6a84202b85 100644
+--- a/.github/workflows/close-stale-contributor-prs.yml
++++ b/.github/workflows/close-stale-contributor-prs.yml
+@@ -2,8 +2,6 @@ name: Close stale contributor PRs
+ 
+ on:
+   workflow_dispatch:
+-  schedule:
+-    - cron: "0 6 * * *"
+ 
+ permissions:
+   contents: read
+diff --git a/.github/workflows/rust-release-prepare.yml b/.github/workflows/rust-release-prepare.yml
+index 528c329d58..c41df07ebe 100644
+--- a/.github/workflows/rust-release-prepare.yml
++++ b/.github/workflows/rust-release-prepare.yml
+@@ -1,8 +1,6 @@
+ name: rust-release-prepare
+ on:
+   workflow_dispatch:
+-  schedule:
+-    - cron: "0 */4 * * *"
+ 
+ concurrency:
+   group: ${{ github.workflow }}
+diff --git a/.github/workflows/rust-release.yml b/.github/workflows/rust-release.yml
+index efd3dd11eb..54a8b911aa 100644
+--- a/.github/workflows/rust-release.yml
++++ b/.github/workflows/rust-release.yml
+@@ -7,9 +7,7 @@
+ 
+ name: rust-release
+ on:
+-  push:
+-    tags:
+-      - "rust-v*.*.*"
++  workflow_dispatch:
+ 
+ concurrency:
+   group: ${{ github.workflow }}
+diff --git a/codex-rs/cli/src/debug_sandbox.rs b/codex-rs/cli/src/debug_sandbox.rs
+index e173f65734..1f128d8544 100644
+--- a/codex-rs/cli/src/debug_sandbox.rs
++++ b/codex-rs/cli/src/debug_sandbox.rs
+@@ -309,7 +309,7 @@ async fn run_command_under_windows_session(
+             command,
+             cwd.as_path(),
+             env,
+-            None,
++            /*timeout_ms*/ None,
+             /*tty*/ false,
+             /*stdin_open*/ true,
+             config.permissions.windows_sandbox_private_desktop,
+@@ -323,7 +323,7 @@ async fn run_command_under_windows_session(
+             command,
+             cwd.as_path(),
+             env,
+-            None,
++            /*timeout_ms*/ None,
+             /*tty*/ false,
+             /*stdin_open*/ true,
+             config.permissions.windows_sandbox_private_desktop,
+diff --git a/codex-rs/core/src/client.rs b/codex-rs/core/src/client.rs
+index cb63ca4551..0ae6eea34b 100644
+--- a/codex-rs/core/src/client.rs
++++ b/codex-rs/core/src/client.rs
+@@ -1554,12 +1554,17 @@ impl ModelClientSession {
+     }
+ }
+ 
+-/// Parses per-turn metadata into an HTTP header value.
++/// Parses the already-encoded per-turn metadata into an HTTP header value.
+ ///
+ /// Invalid values are treated as absent so callers can compare and propagate
+-/// metadata with the same sanitization path used when constructing headers.
++/// metadata with the same Base64 sanitization path used when constructing
++/// headers.
+ fn parse_turn_metadata_header(turn_metadata_header: Option<&str>) -> Option<HeaderValue> {
+-    turn_metadata_header.and_then(|value| HeaderValue::from_str(value).ok())
++    use base64::prelude::*;
++
++    turn_metadata_header
++        .filter(|value| BASE64_STANDARD.decode(value).is_ok())
++        .and_then(|value| HeaderValue::from_str(value).ok())
+ }
+ 
+ /// Builds the extra headers attached to Responses API requests.
+diff --git a/codex-rs/core/src/client_tests.rs b/codex-rs/core/src/client_tests.rs
+index f4575b26a0..72f2723ac5 100644
+--- a/codex-rs/core/src/client_tests.rs
++++ b/codex-rs/core/src/client_tests.rs
+@@ -104,7 +104,13 @@ fn build_ws_client_metadata_includes_window_lineage_and_turn_metadata() {
+ 
+     client.advance_window_generation();
+ 
+-    let client_metadata = client.build_ws_client_metadata(Some(r#"{"turn_id":"turn-123"}"#));
++    let encoded_turn_metadata = {
++        use base64::prelude::*;
++
++        BASE64_STANDARD.encode(r#"{"turn_id":"turn-123"}"#)
++    };
++
++    let client_metadata = client.build_ws_client_metadata(Some(&encoded_turn_metadata));
+     let conversation_id = client.state.conversation_id;
+     assert_eq!(
+         client_metadata,
+@@ -127,12 +133,33 @@ fn build_ws_client_metadata_includes_window_lineage_and_turn_metadata() {
+             ),
+             (
+                 X_CODEX_TURN_METADATA_HEADER.to_string(),
+-                r#"{"turn_id":"turn-123"}"#.to_string(),
++                encoded_turn_metadata,
+             ),
+         ])
+     );
+ }
+ 
++#[test]
++fn parse_turn_metadata_header_preserves_base64_for_multibyte_json() {
++    let encoded = {
++        use base64::prelude::*;
++
++        BASE64_STANDARD.encode(r#"{"turn_id":"turn-123","label":"日本語"}"#)
++    };
++
++    let header = super::parse_turn_metadata_header(Some(encoded.as_str()))
++        .expect("base64-encoded turn metadata should be accepted");
++
++    assert_eq!(header.to_str().ok(), Some(encoded.as_str()));
++}
++
++#[test]
++fn parse_turn_metadata_header_rejects_raw_ascii_json() {
++    let raw_json = r#"{"turn_id":"turn-123","sandbox":"workspace-write"}"#;
++
++    assert_eq!(super::parse_turn_metadata_header(Some(raw_json)), None);
++}
++
+ #[tokio::test]
+ async fn summarize_memories_returns_empty_for_empty_input() {
+     let client = test_model_client(SessionSource::Cli);
+diff --git a/codex-rs/core/src/compact_remote.rs b/codex-rs/core/src/compact_remote.rs
+index 0623ceb3b6..df4d53188c 100644
+--- a/codex-rs/core/src/compact_remote.rs
++++ b/codex-rs/core/src/compact_remote.rs
+@@ -250,9 +250,32 @@ pub(crate) async fn process_compacted_history(
+     };
+ 
+     compacted_history.retain(should_keep_compacted_history_item);
++    remove_orphaned_assistant_messages(&mut compacted_history);
+     insert_initial_context_before_last_real_user_or_summary(compacted_history, initial_context)
+ }
+ 
++/// Removes assistant `Message` items that lost their paired `Reasoning` during
++/// the `retain()` pass. The Azure Responses API rejects a message whose
++/// reasoning was stripped.
++fn remove_orphaned_assistant_messages(items: &mut Vec<ResponseItem>) {
++    let mut i = 0;
++    while i < items.len() {
++        if let ResponseItem::Message {
++            id: Some(_), role, ..
++        } = &items[i]
++            && role == "assistant"
++        {
++            let preceded_by_reasoning =
++                i > 0 && matches!(&items[i - 1], ResponseItem::Reasoning { .. });
++            if !preceded_by_reasoning {
++                items.remove(i);
++                continue;
++            }
++        }
++        i += 1;
++    }
++}
++
+ /// Returns whether an item from remote compaction output should be preserved.
+ ///
+ /// Called while processing the model-provided compacted transcript, before we
+diff --git a/codex-rs/core/src/compact_tests.rs b/codex-rs/core/src/compact_tests.rs
+index fbdfdb051d..dc0d8708d7 100644
+--- a/codex-rs/core/src/compact_tests.rs
++++ b/codex-rs/core/src/compact_tests.rs
+@@ -214,6 +214,64 @@ fn should_use_remote_compact_task_for_azure_provider() {
+     assert!(should_use_remote_compact_task(&provider));
+ }
+ 
++#[tokio::test]
++async fn process_compacted_history_removes_orphaned_assistant_messages() {
++    let compacted_history = vec![
++        ResponseItem::Message {
++            id: Some("msg_abc".to_string()),
++            role: "assistant".to_string(),
++            content: vec![ContentItem::OutputText {
++                text: "orphaned assistant".to_string(),
++            }],
++            end_turn: None,
++            phase: None,
++        },
++        ResponseItem::Message {
++            id: None,
++            role: "assistant".to_string(),
++            content: vec![ContentItem::OutputText {
++                text: "keep me".to_string(),
++            }],
++            end_turn: None,
++            phase: None,
++        },
++        ResponseItem::Message {
++            id: None,
++            role: "user".to_string(),
++            content: vec![ContentItem::InputText {
++                text: "summary".to_string(),
++            }],
++            end_turn: None,
++            phase: None,
++        },
++    ];
++    let (refreshed, initial_context) = process_compacted_history_with_test_session(
++        compacted_history,
++        /*previous_turn_settings*/ None,
++    )
++    .await;
++    let mut expected = vec![ResponseItem::Message {
++        id: None,
++        role: "assistant".to_string(),
++        content: vec![ContentItem::OutputText {
++            text: "keep me".to_string(),
++        }],
++        end_turn: None,
++        phase: None,
++    }];
++    expected.extend(initial_context);
++    expected.push(ResponseItem::Message {
++        id: None,
++        role: "user".to_string(),
++        content: vec![ContentItem::InputText {
++            text: "summary".to_string(),
++        }],
++        end_turn: None,
++        phase: None,
++    });
++    assert_eq!(refreshed, expected);
++}
++
+ #[tokio::test]
+ async fn process_compacted_history_replaces_developer_messages() {
+     let compacted_history = vec![
+diff --git a/codex-rs/core/src/mcp_tool_call_tests.rs b/codex-rs/core/src/mcp_tool_call_tests.rs
+index 7dcc1eabe6..b403e8831d 100644
+--- a/codex-rs/core/src/mcp_tool_call_tests.rs
++++ b/codex-rs/core/src/mcp_tool_call_tests.rs
+@@ -35,6 +35,15 @@ use tracing::Level;
+ use tracing_subscriber::fmt::format::FmtSpan;
+ use tracing_test::internal::MockWriter;
+ 
++fn decode_turn_metadata_header(header: &str) -> String {
++    use base64::prelude::*;
++
++    BASE64_STANDARD
++        .decode(header)
++        .map(|bytes| String::from_utf8(bytes).expect("x-codex-turn-metadata should be UTF-8"))
++        .expect("x-codex-turn-metadata should be valid Base64")
++}
++
+ fn annotations(
+     read_only: Option<bool>,
+     destructive: Option<bool>,
+@@ -661,13 +670,13 @@ fn sanitize_mcp_tool_result_for_model_preserves_image_when_supported() {
+ #[tokio::test]
+ async fn mcp_tool_call_request_meta_includes_turn_metadata_for_custom_server() {
+     let (_, turn_context) = make_session_and_context().await;
+-    let expected_turn_metadata = serde_json::from_str::<serde_json::Value>(
+-        &turn_context
+-            .turn_metadata_state
+-            .current_header_value()
+-            .expect("turn metadata header"),
+-    )
+-    .expect("turn metadata json");
++    let header = turn_context
++        .turn_metadata_state
++        .current_header_value()
++        .expect("turn metadata header");
++    let decoded = decode_turn_metadata_header(&header);
++    let expected_turn_metadata =
++        serde_json::from_str::<serde_json::Value>(&decoded).expect("turn metadata json");
+ 
+     let meta =
+         build_mcp_tool_call_request_meta(&turn_context, "custom_server", /*metadata*/ None)
+@@ -684,13 +693,13 @@ async fn mcp_tool_call_request_meta_includes_turn_metadata_for_custom_server() {
+ #[tokio::test]
+ async fn codex_apps_tool_call_request_meta_includes_turn_metadata_and_codex_apps_meta() {
+     let (_, turn_context) = make_session_and_context().await;
+-    let expected_turn_metadata = serde_json::from_str::<serde_json::Value>(
+-        &turn_context
+-            .turn_metadata_state
+-            .current_header_value()
+-            .expect("turn metadata header"),
+-    )
+-    .expect("turn metadata json");
++    let header = turn_context
++        .turn_metadata_state
++        .current_header_value()
++        .expect("turn metadata header");
++    let decoded = decode_turn_metadata_header(&header);
++    let expected_turn_metadata =
++        serde_json::from_str::<serde_json::Value>(&decoded).expect("turn metadata json");
+     let metadata = McpToolApprovalMetadata {
+         annotations: None,
+         connector_id: Some("calendar".to_string()),
+diff --git a/codex-rs/core/src/turn_metadata.rs b/codex-rs/core/src/turn_metadata.rs
+index 59b1464086..802ba2a890 100644
+--- a/codex-rs/core/src/turn_metadata.rs
++++ b/codex-rs/core/src/turn_metadata.rs
+@@ -69,7 +69,12 @@ pub(crate) struct TurnMetadataBag {
+ 
+ impl TurnMetadataBag {
+     fn to_header_value(&self) -> Option<String> {
+-        serde_json::to_string(self).ok()
++        // Keep turn metadata ASCII-safe for HTTP headers.
++        use base64::prelude::*;
++
++        serde_json::to_string(self)
++            .ok()
++            .map(|json| BASE64_STANDARD.encode(json))
+     }
+ }
+ 
+@@ -77,14 +82,19 @@ fn merge_responsesapi_client_metadata(
+     header: &str,
+     responsesapi_client_metadata: Option<&HashMap<String, String>>,
+ ) -> Option<String> {
++    use base64::prelude::*;
++
+     let responsesapi_client_metadata = responsesapi_client_metadata?;
+-    let mut metadata = serde_json::from_str::<serde_json::Map<String, Value>>(header).ok()?;
++    let decoded = BASE64_STANDARD.decode(header).ok()?;
++    let mut metadata = serde_json::from_slice::<serde_json::Map<String, Value>>(&decoded).ok()?;
+     for (key, value) in responsesapi_client_metadata {
+         metadata
+             .entry(key.clone())
+             .or_insert_with(|| Value::String(value.clone()));
+     }
+-    serde_json::to_string(&metadata).ok()
++    serde_json::to_string(&metadata)
++        .ok()
++        .map(|json| BASE64_STANDARD.encode(json))
+ }
+ 
+ fn build_turn_metadata_bag(
+@@ -213,8 +223,11 @@ impl TurnMetadataState {
+     }
+ 
+     pub(crate) fn current_meta_value(&self) -> Option<serde_json::Value> {
++        use base64::prelude::*;
++
+         self.current_header_value()
+-            .and_then(|header| serde_json::from_str(&header).ok())
++            .and_then(|header| BASE64_STANDARD.decode(header).ok())
++            .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+     }
+ 
+     pub(crate) fn set_responsesapi_client_metadata(
+diff --git a/codex-rs/core/src/turn_metadata_tests.rs b/codex-rs/core/src/turn_metadata_tests.rs
+index 998aa81747..6d183858a6 100644
+--- a/codex-rs/core/src/turn_metadata_tests.rs
++++ b/codex-rs/core/src/turn_metadata_tests.rs
+@@ -9,6 +9,15 @@ use std::collections::HashMap;
+ use tempfile::TempDir;
+ use tokio::process::Command;
+ 
++fn decode_turn_metadata_header(header: &str) -> String {
++    use base64::prelude::*;
++
++    BASE64_STANDARD
++        .decode(header)
++        .map(|bytes| String::from_utf8(bytes).expect("x-codex-turn-metadata should be UTF-8"))
++        .expect("x-codex-turn-metadata should be valid Base64")
++}
++
+ #[tokio::test]
+ async fn build_turn_metadata_header_includes_has_changes_for_clean_repo() {
+     let temp_dir = TempDir::new().expect("temp dir");
+@@ -51,7 +60,8 @@ async fn build_turn_metadata_header_includes_has_changes_for_clean_repo() {
+     let header = build_turn_metadata_header(&repo_path, Some("none"))
+         .await
+         .expect("header");
+-    let parsed: Value = serde_json::from_str(&header).expect("valid json");
++    let decoded = decode_turn_metadata_header(&header);
++    let parsed: Value = serde_json::from_str(&decoded).expect("valid json");
+     let workspace = parsed
+         .get("workspaces")
+         .and_then(Value::as_object)
+@@ -81,7 +91,8 @@ fn turn_metadata_state_uses_platform_sandbox_tag() {
+     );
+ 
+     let header = state.current_header_value().expect("header");
+-    let json: Value = serde_json::from_str(&header).expect("json");
++    let decoded = decode_turn_metadata_header(&header);
++    let json: Value = serde_json::from_str(&decoded).expect("json");
+     let sandbox_name = json.get("sandbox").and_then(Value::as_str);
+     let session_id = json.get("session_id").and_then(Value::as_str);
+     let thread_source = json.get("thread_source").and_then(Value::as_str);
+@@ -110,7 +121,8 @@ fn turn_metadata_state_classifies_subagent_thread_source() {
+     );
+ 
+     let header = state.current_header_value().expect("header");
+-    let json: Value = serde_json::from_str(&header).expect("json");
++    let decoded = decode_turn_metadata_header(&header);
++    let json: Value = serde_json::from_str(&decoded).expect("json");
+ 
+     assert_eq!(json["thread_source"].as_str(), Some("subagent"));
+     assert!(json.get("session_source").is_none());
+@@ -137,7 +149,8 @@ fn turn_metadata_state_merges_client_metadata_without_replacing_reserved_fields(
+     ]));
+ 
+     let header = state.current_header_value().expect("header");
+-    let json: Value = serde_json::from_str(&header).expect("json");
++    let decoded = decode_turn_metadata_header(&header);
++    let json: Value = serde_json::from_str(&decoded).expect("json");
+ 
+     assert_eq!(json["fiber_run_id"].as_str(), Some("fiber-123"));
+     assert_eq!(json["session_id"].as_str(), Some("session-a"));
+diff --git a/codex-rs/core/src/unified_exec/process_manager.rs b/codex-rs/core/src/unified_exec/process_manager.rs
+index ec0b00cf59..cabe0369f4 100644
+--- a/codex-rs/core/src/unified_exec/process_manager.rs
++++ b/codex-rs/core/src/unified_exec/process_manager.rs
+@@ -683,7 +683,7 @@ impl UnifiedExecProcessManager {
+                         request.command.clone(),
+                         request.cwd.as_path(),
+                         request.env.clone(),
+-                        None,
++                        /*timeout_ms*/ None,
+                         tty,
+                         tty,
+                         request.windows_sandbox_private_desktop,
+@@ -699,7 +699,7 @@ impl UnifiedExecProcessManager {
+                         request.command.clone(),
+                         request.cwd.as_path(),
+                         request.env.clone(),
+-                        None,
++                        /*timeout_ms*/ None,
+                         tty,
+                         tty,
+                         request.windows_sandbox_private_desktop,
+diff --git a/codex-rs/core/tests/responses_headers.rs b/codex-rs/core/tests/responses_headers.rs
+index 2cdcaf448c..3dbcdd74c6 100644
+--- a/codex-rs/core/tests/responses_headers.rs
++++ b/codex-rs/core/tests/responses_headers.rs
+@@ -33,6 +33,16 @@ fn normalize_git_remote_url(url: &str) -> String {
+ 
+ const TEST_INSTALLATION_ID: &str = "11111111-1111-4111-8111-111111111111";
+ 
++fn decode_turn_metadata_header(header: &str) -> serde_json::Value {
++    use base64::prelude::*;
++
++    let bytes = BASE64_STANDARD
++        .decode(header)
++        .unwrap_or_else(|error| panic!("x-codex-turn-metadata should be valid Base64: {error}"));
++    serde_json::from_slice(&bytes)
++        .unwrap_or_else(|error| panic!("x-codex-turn-metadata should be valid JSON: {error}"))
++}
++
+ #[tokio::test]
+ async fn responses_stream_includes_subagent_header_on_review() {
+     core_test_support::skip_if_no_network!();
+@@ -426,8 +436,7 @@ async fn responses_stream_includes_turn_metadata_header_for_git_workspace_e2e()
+         .single_request()
+         .header("x-codex-turn-metadata")
+         .expect("x-codex-turn-metadata header should be present");
+-    let initial_parsed: serde_json::Value =
+-        serde_json::from_str(&initial_header).expect("x-codex-turn-metadata should be valid JSON");
++    let initial_parsed = decode_turn_metadata_header(&initial_header);
+     let initial_turn_id = initial_parsed
+         .get("turn_id")
+         .and_then(serde_json::Value::as_str)
+@@ -519,18 +528,14 @@ async fn responses_stream_includes_turn_metadata_header_for_git_workspace_e2e()
+     let requests = request_log.requests();
+     assert_eq!(requests.len(), 2, "expected two requests in one turn");
+ 
+-    let first_parsed: serde_json::Value = serde_json::from_str(
+-        &requests[0]
+-            .header("x-codex-turn-metadata")
+-            .expect("first request should include turn metadata"),
+-    )
+-    .expect("first metadata should be valid json");
+-    let second_parsed: serde_json::Value = serde_json::from_str(
+-        &requests[1]
+-            .header("x-codex-turn-metadata")
+-            .expect("second request should include turn metadata"),
+-    )
+-    .expect("second metadata should be valid json");
++    let first_header = requests[0]
++        .header("x-codex-turn-metadata")
++        .expect("first request should include turn metadata");
++    let second_header = requests[1]
++        .header("x-codex-turn-metadata")
++        .expect("second request should include turn metadata");
++    let first_parsed = decode_turn_metadata_header(&first_header);
++    let second_parsed = decode_turn_metadata_header(&second_header);
+ 
+     let first_turn_id = first_parsed
+         .get("turn_id")
+diff --git a/codex-rs/core/tests/suite/client_websockets.rs b/codex-rs/core/tests/suite/client_websockets.rs
+index 7e2d116c1f..de3a2bbba0 100755
+--- a/codex-rs/core/tests/suite/client_websockets.rs
++++ b/codex-rs/core/tests/suite/client_websockets.rs
+@@ -57,6 +57,21 @@ const WS_V2_BETA_HEADER_VALUE: &str = "responses_websockets=2026-02-06";
+ const X_CLIENT_REQUEST_ID_HEADER: &str = "x-client-request-id";
+ const TEST_INSTALLATION_ID: &str = "11111111-1111-4111-8111-111111111111";
+ 
++fn encode_turn_metadata_header(json: &str) -> String {
++    use base64::prelude::*;
++
++    BASE64_STANDARD.encode(json)
++}
++
++fn decode_turn_metadata_header(header: &str) -> serde_json::Value {
++    use base64::prelude::*;
++
++    let bytes = BASE64_STANDARD
++        .decode(header)
++        .expect("x-codex-turn-metadata should be valid Base64");
++    serde_json::from_slice(&bytes).expect("x-codex-turn-metadata should be valid JSON")
++}
++
+ fn assert_request_trace_matches(body: &serde_json::Value, expected_trace: &W3cTraceContext) {
+     let client_metadata = body["client_metadata"]
+         .as_object()
+@@ -1219,6 +1234,8 @@ async fn responses_websocket_forwards_turn_metadata_on_initial_and_incremental_c
+     let first_turn_metadata =
+         r#"{"turn_id":"turn-123","thread_source":"user","sandbox":"workspace-write"}"#;
+     let enriched_turn_metadata = r#"{"turn_id":"turn-123","thread_source":"user","sandbox":"workspace-write","workspaces":[{"root_path":"/tmp/repo","latest_git_commit_hash":"abc123","associated_remote_urls":["git@github.com:openai/codex.git"],"has_changes":true}]}"#;
++    let first_turn_metadata_header = encode_turn_metadata_header(first_turn_metadata);
++    let enriched_turn_metadata_header = encode_turn_metadata_header(enriched_turn_metadata);
+     let prompt_one = prompt_with_input(vec![message_item("hello")]);
+     let prompt_two = prompt_with_input(vec![
+         message_item("hello"),
+@@ -1231,7 +1248,7 @@ async fn responses_websocket_forwards_turn_metadata_on_initial_and_incremental_c
+         &harness,
+         &prompt_one,
+         /*service_tier*/ None,
+-        Some(first_turn_metadata),
++        Some(&first_turn_metadata_header),
+     )
+     .await;
+     stream_until_complete_with_turn_metadata(
+@@ -1239,7 +1256,7 @@ async fn responses_websocket_forwards_turn_metadata_on_initial_and_incremental_c
+         &harness,
+         &prompt_two,
+         /*service_tier*/ None,
+-        Some(enriched_turn_metadata),
++        Some(&enriched_turn_metadata_header),
+     )
+     .await;
+ 
+@@ -1251,19 +1268,17 @@ async fn responses_websocket_forwards_turn_metadata_on_initial_and_incremental_c
+     assert_eq!(first["type"].as_str(), Some("response.create"));
+     assert_eq!(
+         first["client_metadata"]["x-codex-turn-metadata"].as_str(),
+-        Some(first_turn_metadata)
++        Some(first_turn_metadata_header.as_str())
+     );
+     assert_eq!(second["type"].as_str(), Some("response.create"));
+     assert_eq!(second["previous_response_id"].as_str(), Some("resp-1"));
+     assert_eq!(
+         second["client_metadata"]["x-codex-turn-metadata"].as_str(),
+-        Some(enriched_turn_metadata)
++        Some(enriched_turn_metadata_header.as_str())
+     );
+ 
+-    let first_metadata: serde_json::Value =
+-        serde_json::from_str(first_turn_metadata).expect("first metadata should be valid json");
+-    let second_metadata: serde_json::Value = serde_json::from_str(enriched_turn_metadata)
+-        .expect("enriched metadata should be valid json");
++    let first_metadata = decode_turn_metadata_header(&first_turn_metadata_header);
++    let second_metadata = decode_turn_metadata_header(&enriched_turn_metadata_header);
+ 
+     assert_eq!(first_metadata["turn_id"].as_str(), Some("turn-123"));
+     assert_eq!(second_metadata["turn_id"].as_str(), Some("turn-123"));
+@@ -1296,13 +1311,14 @@ async fn responses_websocket_preserves_custom_turn_metadata_fields() {
+         "origin": "app-server",
+     })
+     .to_string();
++    let encoded_turn_metadata = encode_turn_metadata_header(&turn_metadata);
+ 
+     stream_until_complete_with_turn_metadata(
+         &mut client_session,
+         &harness,
+         &prompt,
+         /*service_tier*/ None,
+-        Some(&turn_metadata),
++        Some(&encoded_turn_metadata),
+     )
+     .await;
+ 
+@@ -1316,7 +1332,7 @@ async fn responses_websocket_preserves_custom_turn_metadata_fields() {
+     assert_eq!(
+         body["client_metadata"]["x-codex-turn-metadata"]
+             .as_str()
+-            .map(|value| serde_json::from_str::<serde_json::Value>(value).expect("valid json")),
++            .map(decode_turn_metadata_header),
+         Some(json!({
+             "turn_id": "turn-123",
+             "fiber_run_id": "fiber-123",
+diff --git a/codex-rs/debug-client/src/output.rs b/codex-rs/debug-client/src/output.rs
+index f164a3ade8..a0496746e1 100644
+--- a/codex-rs/debug-client/src/output.rs
++++ b/codex-rs/debug-client/src/output.rs
+@@ -160,10 +160,10 @@ mod tests {
+         let output = Output::new(Some(file));
+ 
+         output
+-            .server_json_line(r#"{"id":1}"#, false)
++            .server_json_line(r#"{"id":1}"#, /*filtered_output*/ false)
+             .expect("write unfiltered line");
+         output
+-            .server_json_line(r#"{"id":2}"#, true)
++            .server_json_line(r#"{"id":2}"#, /*filtered_output*/ true)
+             .expect("write filtered line");
+ 
+         assert_eq!(
+diff --git a/codex-rs/windows-sandbox-rs/src/unified_exec/tests.rs b/codex-rs/windows-sandbox-rs/src/unified_exec/tests.rs
+index a2bc7bebf0..383cfca266 100644
+--- a/codex-rs/windows-sandbox-rs/src/unified_exec/tests.rs
++++ b/codex-rs/windows-sandbox-rs/src/unified_exec/tests.rs
+@@ -296,7 +296,7 @@ fn runner_stdin_writer_sends_close_stdin_after_input_eof() {
+         drop(writer_tx);
+         writer_handle.await.expect("join stdin writer");
+ 
+-        let frames = wait_for_frame_count(&frames_path, 2);
++        let frames = wait_for_frame_count(&frames_path, /*expected_frames*/ 2);
+ 
+         match &frames[0] {
+             Message::Stdin { payload } => {
+@@ -335,7 +335,7 @@ fn runner_resizer_sends_resize_frame() {
+         })
+         .expect("send resize frame");
+ 
+-        let frames = wait_for_frame_count(&frames_path, 1);
++        let frames = wait_for_frame_count(&frames_path, /*expected_frames*/ 1);
+         match &frames[0] {
+             Message::Resize { payload } => {
+                 assert_eq!(payload.rows, 45);

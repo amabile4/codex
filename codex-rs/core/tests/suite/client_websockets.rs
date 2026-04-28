@@ -57,6 +57,21 @@ const WS_V2_BETA_HEADER_VALUE: &str = "responses_websockets=2026-02-06";
 const X_CLIENT_REQUEST_ID_HEADER: &str = "x-client-request-id";
 const TEST_INSTALLATION_ID: &str = "11111111-1111-4111-8111-111111111111";
 
+fn encode_turn_metadata_header(json: &str) -> String {
+    use base64::prelude::*;
+
+    BASE64_STANDARD.encode(json)
+}
+
+fn decode_turn_metadata_header(header: &str) -> serde_json::Value {
+    use base64::prelude::*;
+
+    let bytes = BASE64_STANDARD
+        .decode(header)
+        .expect("x-codex-turn-metadata should be valid Base64");
+    serde_json::from_slice(&bytes).expect("x-codex-turn-metadata should be valid JSON")
+}
+
 fn assert_request_trace_matches(body: &serde_json::Value, expected_trace: &W3cTraceContext) {
     let client_metadata = body["client_metadata"]
         .as_object()
@@ -1219,6 +1234,8 @@ async fn responses_websocket_forwards_turn_metadata_on_initial_and_incremental_c
     let first_turn_metadata =
         r#"{"turn_id":"turn-123","thread_source":"user","sandbox":"workspace-write"}"#;
     let enriched_turn_metadata = r#"{"turn_id":"turn-123","thread_source":"user","sandbox":"workspace-write","workspaces":[{"root_path":"/tmp/repo","latest_git_commit_hash":"abc123","associated_remote_urls":["git@github.com:openai/codex.git"],"has_changes":true}]}"#;
+    let first_turn_metadata_header = encode_turn_metadata_header(first_turn_metadata);
+    let enriched_turn_metadata_header = encode_turn_metadata_header(enriched_turn_metadata);
     let prompt_one = prompt_with_input(vec![message_item("hello")]);
     let prompt_two = prompt_with_input(vec![
         message_item("hello"),
@@ -1231,7 +1248,7 @@ async fn responses_websocket_forwards_turn_metadata_on_initial_and_incremental_c
         &harness,
         &prompt_one,
         /*service_tier*/ None,
-        Some(first_turn_metadata),
+        Some(&first_turn_metadata_header),
     )
     .await;
     stream_until_complete_with_turn_metadata(
@@ -1239,7 +1256,7 @@ async fn responses_websocket_forwards_turn_metadata_on_initial_and_incremental_c
         &harness,
         &prompt_two,
         /*service_tier*/ None,
-        Some(enriched_turn_metadata),
+        Some(&enriched_turn_metadata_header),
     )
     .await;
 
@@ -1251,19 +1268,17 @@ async fn responses_websocket_forwards_turn_metadata_on_initial_and_incremental_c
     assert_eq!(first["type"].as_str(), Some("response.create"));
     assert_eq!(
         first["client_metadata"]["x-codex-turn-metadata"].as_str(),
-        Some(first_turn_metadata)
+        Some(first_turn_metadata_header.as_str())
     );
     assert_eq!(second["type"].as_str(), Some("response.create"));
     assert_eq!(second["previous_response_id"].as_str(), Some("resp-1"));
     assert_eq!(
         second["client_metadata"]["x-codex-turn-metadata"].as_str(),
-        Some(enriched_turn_metadata)
+        Some(enriched_turn_metadata_header.as_str())
     );
 
-    let first_metadata: serde_json::Value =
-        serde_json::from_str(first_turn_metadata).expect("first metadata should be valid json");
-    let second_metadata: serde_json::Value = serde_json::from_str(enriched_turn_metadata)
-        .expect("enriched metadata should be valid json");
+    let first_metadata = decode_turn_metadata_header(&first_turn_metadata_header);
+    let second_metadata = decode_turn_metadata_header(&enriched_turn_metadata_header);
 
     assert_eq!(first_metadata["turn_id"].as_str(), Some("turn-123"));
     assert_eq!(second_metadata["turn_id"].as_str(), Some("turn-123"));
@@ -1296,13 +1311,14 @@ async fn responses_websocket_preserves_custom_turn_metadata_fields() {
         "origin": "app-server",
     })
     .to_string();
+    let encoded_turn_metadata = encode_turn_metadata_header(&turn_metadata);
 
     stream_until_complete_with_turn_metadata(
         &mut client_session,
         &harness,
         &prompt,
         /*service_tier*/ None,
-        Some(&turn_metadata),
+        Some(&encoded_turn_metadata),
     )
     .await;
 
@@ -1316,7 +1332,7 @@ async fn responses_websocket_preserves_custom_turn_metadata_fields() {
     assert_eq!(
         body["client_metadata"]["x-codex-turn-metadata"]
             .as_str()
-            .map(|value| serde_json::from_str::<serde_json::Value>(value).expect("valid json")),
+            .map(decode_turn_metadata_header),
         Some(json!({
             "turn_id": "turn-123",
             "fiber_run_id": "fiber-123",

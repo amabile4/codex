@@ -33,6 +33,16 @@ fn normalize_git_remote_url(url: &str) -> String {
 
 const TEST_INSTALLATION_ID: &str = "11111111-1111-4111-8111-111111111111";
 
+fn decode_turn_metadata_header(header: &str) -> serde_json::Value {
+    use base64::prelude::*;
+
+    let bytes = BASE64_STANDARD
+        .decode(header)
+        .unwrap_or_else(|error| panic!("x-codex-turn-metadata should be valid Base64: {error}"));
+    serde_json::from_slice(&bytes)
+        .unwrap_or_else(|error| panic!("x-codex-turn-metadata should be valid JSON: {error}"))
+}
+
 #[tokio::test]
 async fn responses_stream_includes_subagent_header_on_review() {
     core_test_support::skip_if_no_network!();
@@ -426,8 +436,7 @@ async fn responses_stream_includes_turn_metadata_header_for_git_workspace_e2e() 
         .single_request()
         .header("x-codex-turn-metadata")
         .expect("x-codex-turn-metadata header should be present");
-    let initial_parsed: serde_json::Value =
-        serde_json::from_str(&initial_header).expect("x-codex-turn-metadata should be valid JSON");
+    let initial_parsed = decode_turn_metadata_header(&initial_header);
     let initial_turn_id = initial_parsed
         .get("turn_id")
         .and_then(serde_json::Value::as_str)
@@ -519,18 +528,14 @@ async fn responses_stream_includes_turn_metadata_header_for_git_workspace_e2e() 
     let requests = request_log.requests();
     assert_eq!(requests.len(), 2, "expected two requests in one turn");
 
-    let first_parsed: serde_json::Value = serde_json::from_str(
-        &requests[0]
-            .header("x-codex-turn-metadata")
-            .expect("first request should include turn metadata"),
-    )
-    .expect("first metadata should be valid json");
-    let second_parsed: serde_json::Value = serde_json::from_str(
-        &requests[1]
-            .header("x-codex-turn-metadata")
-            .expect("second request should include turn metadata"),
-    )
-    .expect("second metadata should be valid json");
+    let first_header = requests[0]
+        .header("x-codex-turn-metadata")
+        .expect("first request should include turn metadata");
+    let second_header = requests[1]
+        .header("x-codex-turn-metadata")
+        .expect("second request should include turn metadata");
+    let first_parsed = decode_turn_metadata_header(&first_header);
+    let second_parsed = decode_turn_metadata_header(&second_header);
 
     let first_turn_id = first_parsed
         .get("turn_id")
