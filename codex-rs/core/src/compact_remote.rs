@@ -265,6 +265,51 @@ fn remove_orphaned_assistant_messages(items: &mut Vec<ResponseItem>) {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::remove_orphaned_assistant_messages;
+    use super::should_keep_compacted_history_item;
+    use codex_protocol::models::ContentItem;
+    use codex_protocol::models::ResponseItem;
+
+    #[test]
+    fn remote_compaction_filter_does_not_orphan_assistant_message() {
+        let assistant = ResponseItem::Message {
+            id: Some("msg_test".to_string()),
+            role: "assistant".to_string(),
+            content: vec![ContentItem::OutputText {
+                text: "summary".to_string(),
+            }],
+            phase: None,
+        };
+        let mut compacted_history = vec![
+            ResponseItem::Reasoning {
+                id: "rs_test".to_string(),
+                summary: Vec::new(),
+                content: None,
+                encrypted_content: Some("encrypted".to_string()),
+            },
+            assistant,
+        ];
+
+        // This mirrors the minimal orphaned assistant fixture from openai/codex#20774.
+        compacted_history.retain(should_keep_compacted_history_item);
+        remove_orphaned_assistant_messages(&mut compacted_history);
+
+        assert!(
+            !matches!(
+                compacted_history.as_slice(),
+                [ResponseItem::Message {
+                    id: Some(_),
+                    role,
+                    ..
+                }] if role == "assistant"
+            ),
+            "assistant message survived without its reasoning predecessor: {compacted_history:?}"
+        );
+    }
+}
+
 /// Returns whether an item from remote compaction output should be preserved.
 ///
 /// Called while processing the model-provided compacted transcript, before we
