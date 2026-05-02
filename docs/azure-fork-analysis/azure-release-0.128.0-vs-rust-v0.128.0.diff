@@ -1,0 +1,551 @@
+diff --git a/.github/workflows/build-and-release.yml b/.github/workflows/build-and-release.yml
+new file mode 100644
+index 0000000000..f41610e73d
+--- /dev/null
++++ b/.github/workflows/build-and-release.yml
+@@ -0,0 +1,68 @@
++name: build-and-release-windows-azure-fork
++
++on:
++  push:
++    tags:
++      - "azure-release-*"
++
++concurrency:
++  group: ${{ github.workflow }}-${{ github.ref }}
++  cancel-in-progress: true
++
++jobs:
++  build-windows:
++    runs-on: windows-latest
++    timeout-minutes: 240
++    steps:
++      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
++
++      - uses: dtolnay/rust-toolchain@a0b273b48ed29de4470960879e8381ff45632f26 # 1.93.0
++
++      - uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
++        with:
++          path: |
++            ~/.cargo/registry
++            ~/.cargo/git
++            codex-rs/target
++          key: windows-${{ hashFiles('**/Cargo.lock') }}
++
++      - name: Build Windows binaries
++        working-directory: codex-rs
++        shell: bash
++        run: |
++          cargo build --release \
++            --bin codex \
++            --bin codex-windows-sandbox-setup \
++            --bin codex-command-runner
++
++      - name: Package zip
++        shell: pwsh
++        run: |
++          # Azure fork: only publish the three Windows executables we support.
++          New-Item -ItemType Directory -Force -Path dist | Out-Null
++          Copy-Item codex-rs/target/release/codex.exe dist/
++          Copy-Item codex-rs/target/release/codex-windows-sandbox-setup.exe dist/
++          Copy-Item codex-rs/target/release/codex-command-runner.exe dist/
++          Compress-Archive dist/* dist/codex-windows.zip -Force
++
++      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
++        with:
++          name: codex-windows
++          path: dist/codex-windows.zip
++
++  release:
++    needs: build-windows
++    if: startsWith(github.ref, 'refs/tags/')
++    runs-on: ubuntu-latest
++    permissions:
++      contents: write
++    steps:
++      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
++        with:
++          name: codex-windows
++          path: dist
++
++      - uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2
++        with:
++          tag_name: ${{ github.ref_name }}
++          files: dist/codex-windows.zip
+diff --git a/.github/workflows/close-stale-contributor-prs.yml b/.github/workflows/close-stale-contributor-prs.yml
+index 8fb5132772..6a84202b85 100644
+--- a/.github/workflows/close-stale-contributor-prs.yml
++++ b/.github/workflows/close-stale-contributor-prs.yml
+@@ -2,8 +2,6 @@ name: Close stale contributor PRs
+ 
+ on:
+   workflow_dispatch:
+-  schedule:
+-    - cron: "0 6 * * *"
+ 
+ permissions:
+   contents: read
+diff --git a/.github/workflows/rust-release-prepare.yml b/.github/workflows/rust-release-prepare.yml
+index 528c329d58..c41df07ebe 100644
+--- a/.github/workflows/rust-release-prepare.yml
++++ b/.github/workflows/rust-release-prepare.yml
+@@ -1,8 +1,6 @@
+ name: rust-release-prepare
+ on:
+   workflow_dispatch:
+-  schedule:
+-    - cron: "0 */4 * * *"
+ 
+ concurrency:
+   group: ${{ github.workflow }}
+diff --git a/.github/workflows/rust-release.yml b/.github/workflows/rust-release.yml
+index 073ba58210..54a8b911aa 100644
+--- a/.github/workflows/rust-release.yml
++++ b/.github/workflows/rust-release.yml
+@@ -7,9 +7,7 @@
+ 
+ name: rust-release
+ on:
+-  push:
+-    tags:
+-      - "rust-v*.*.*"
++  workflow_dispatch:
+ 
+ concurrency:
+   group: ${{ github.workflow }}
+@@ -47,11 +45,9 @@ jobs:
+ 
+   build:
+     needs: tag-check
+-    name: Build - ${{ matrix.runner }} - ${{ matrix.target }} - ${{ matrix.bundle }}
++    name: Build - ${{ matrix.runner }} - ${{ matrix.target }}
+     runs-on: ${{ matrix.runs_on || matrix.runner }}
+-    # Release builds can take a long time, so leave some headroom to avoid
+-    # having to restart the full workflow due to a timeout.
+-    timeout-minutes: 90
++    timeout-minutes: 60
+     permissions:
+       contents: read
+       id-token: write
+@@ -69,53 +65,16 @@ jobs:
+         include:
+           - runner: macos-15-xlarge
+             target: aarch64-apple-darwin
+-            bundle: primary
+-            artifact_name: aarch64-apple-darwin
+-            binaries: "codex codex-responses-api-proxy"
+-            build_dmg: "true"
+-          - runner: macos-15-xlarge
+-            target: aarch64-apple-darwin
+-            bundle: app-server
+-            artifact_name: aarch64-apple-darwin-app-server
+-            binaries: "codex-app-server"
+-            build_dmg: "false"
+           - runner: macos-15-xlarge
+             target: x86_64-apple-darwin
+-            bundle: primary
+-            artifact_name: x86_64-apple-darwin
+-            binaries: "codex codex-responses-api-proxy"
+-            build_dmg: "true"
+-          - runner: macos-15-xlarge
+-            target: x86_64-apple-darwin
+-            bundle: app-server
+-            artifact_name: x86_64-apple-darwin-app-server
+-            binaries: "codex-app-server"
+-            build_dmg: "false"
+-          # Release artifacts intentionally ship MUSL-linked Linux binaries.
+           - runner: ubuntu-24.04
+             target: x86_64-unknown-linux-musl
+-            bundle: primary
+-            artifact_name: x86_64-unknown-linux-musl
+-            binaries: "codex codex-responses-api-proxy"
+-            build_dmg: "false"
+           - runner: ubuntu-24.04
+-            target: x86_64-unknown-linux-musl
+-            bundle: app-server
+-            artifact_name: x86_64-unknown-linux-musl-app-server
+-            binaries: "codex-app-server"
+-            build_dmg: "false"
++            target: x86_64-unknown-linux-gnu
+           - runner: ubuntu-24.04-arm
+             target: aarch64-unknown-linux-musl
+-            bundle: primary
+-            artifact_name: aarch64-unknown-linux-musl
+-            binaries: "codex codex-responses-api-proxy"
+-            build_dmg: "false"
+           - runner: ubuntu-24.04-arm
+-            target: aarch64-unknown-linux-musl
+-            bundle: app-server
+-            artifact_name: aarch64-unknown-linux-musl-app-server
+-            binaries: "codex-app-server"
+-            build_dmg: "false"
++            target: aarch64-unknown-linux-gnu
+ 
+     steps:
+       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+@@ -258,17 +217,13 @@ jobs:
+       - name: Cargo build
+         shell: bash
+         run: |
+-          build_args=()
+-          for binary in ${{ matrix.binaries }}; do
+-            build_args+=(--bin "$binary")
+-          done
+           echo "CARGO_PROFILE_RELEASE_LTO: ${CARGO_PROFILE_RELEASE_LTO}"
+-          cargo build --target ${{ matrix.target }} --release --timings "${build_args[@]}"
++          cargo build --target ${{ matrix.target }} --release --timings --bin codex --bin codex-responses-api-proxy
+ 
+       - name: Upload Cargo timings
+         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
+         with:
+-          name: cargo-timings-rust-release-${{ matrix.target }}-${{ matrix.bundle }}
++          name: cargo-timings-rust-release-${{ matrix.target }}
+           path: codex-rs/target/**/cargo-timings/cargo-timing.html
+           if-no-files-found: warn
+ 
+@@ -278,14 +233,12 @@ jobs:
+         with:
+           target: ${{ matrix.target }}
+           artifacts-dir: ${{ github.workspace }}/codex-rs/target/${{ matrix.target }}/release
+-          binaries: ${{ matrix.binaries }}
+ 
+       - if: ${{ runner.os == 'macOS' }}
+         name: MacOS code signing (binaries)
+         uses: ./.github/actions/macos-code-sign
+         with:
+           target: ${{ matrix.target }}
+-          binaries: ${{ matrix.binaries }}
+           sign-binaries: "true"
+           sign-dmg: "false"
+           apple-certificate: ${{ secrets.APPLE_CERTIFICATE_P12 }}
+@@ -294,7 +247,7 @@ jobs:
+           apple-notarization-key-id: ${{ secrets.APPLE_NOTARIZATION_KEY_ID }}
+           apple-notarization-issuer-id: ${{ secrets.APPLE_NOTARIZATION_ISSUER_ID }}
+ 
+-      - if: ${{ runner.os == 'macOS' && matrix.build_dmg == 'true' }}
++      - if: ${{ runner.os == 'macOS' }}
+         name: Build macOS dmg
+         shell: bash
+         run: |
+@@ -309,17 +262,23 @@ jobs:
+           # The previous "MacOS code signing (binaries)" step signs + notarizes the
+           # built artifacts in `${release_dir}`. This step packages *those same*
+           # signed binaries into a dmg.
++          codex_binary_path="${release_dir}/codex"
++          proxy_binary_path="${release_dir}/codex-responses-api-proxy"
++
+           rm -rf "$dmg_root"
+           mkdir -p "$dmg_root"
+ 
+-          for binary in ${{ matrix.binaries }}; do
+-            binary_path="${release_dir}/${binary}"
+-            if [[ ! -f "${binary_path}" ]]; then
+-              echo "Binary ${binary_path} not found"
+-              exit 1
+-            fi
+-            ditto "${binary_path}" "${dmg_root}/${binary}"
+-          done
++          if [[ ! -f "$codex_binary_path" ]]; then
++            echo "Binary $codex_binary_path not found"
++            exit 1
++          fi
++          if [[ ! -f "$proxy_binary_path" ]]; then
++            echo "Binary $proxy_binary_path not found"
++            exit 1
++          fi
++
++          ditto "$codex_binary_path" "${dmg_root}/codex"
++          ditto "$proxy_binary_path" "${dmg_root}/codex-responses-api-proxy"
+ 
+           rm -f "$dmg_path"
+           hdiutil create \
+@@ -334,7 +293,7 @@ jobs:
+             exit 1
+           fi
+ 
+-      - if: ${{ runner.os == 'macOS' && matrix.build_dmg == 'true' }}
++      - if: ${{ runner.os == 'macOS' }}
+         name: MacOS code signing (dmg)
+         uses: ./.github/actions/macos-code-sign
+         with:
+@@ -353,15 +312,15 @@ jobs:
+           dest="dist/${{ matrix.target }}"
+           mkdir -p "$dest"
+ 
+-          for binary in ${{ matrix.binaries }}; do
+-            cp "target/${{ matrix.target }}/release/${binary}" "$dest/${binary}-${{ matrix.target }}"
+-            if [[ "${{ matrix.target }}" == *linux* ]]; then
+-              cp "target/${{ matrix.target }}/release/${binary}.sigstore" \
+-                "$dest/${binary}-${{ matrix.target }}.sigstore"
+-            fi
+-          done
++          cp target/${{ matrix.target }}/release/codex "$dest/codex-${{ matrix.target }}"
++          cp target/${{ matrix.target }}/release/codex-responses-api-proxy "$dest/codex-responses-api-proxy-${{ matrix.target }}"
++
++          if [[ "${{ matrix.target }}" == *linux* ]]; then
++            cp target/${{ matrix.target }}/release/codex.sigstore "$dest/codex-${{ matrix.target }}.sigstore"
++            cp target/${{ matrix.target }}/release/codex-responses-api-proxy.sigstore "$dest/codex-responses-api-proxy-${{ matrix.target }}.sigstore"
++          fi
+ 
+-          if [[ "${{ matrix.build_dmg }}" == "true" ]]; then
++          if [[ "${{ matrix.target }}" == *apple-darwin ]]; then
+             cp target/${{ matrix.target }}/release/codex-${{ matrix.target }}.dmg "$dest/codex-${{ matrix.target }}.dmg"
+           fi
+ 
+@@ -403,7 +362,7 @@ jobs:
+ 
+       - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
+         with:
+-          name: ${{ matrix.artifact_name }}
++          name: ${{ matrix.target }}
+           # Upload the per-binary .zst files as well as the new .tar.gz
+           # equivalents we generated in the previous step.
+           path: |
+@@ -653,59 +612,11 @@ jobs:
+             prefix="${NPM_TAG}-"
+           fi
+ 
+-          root_tarball="dist/npm/codex-npm-${VERSION}.tgz"
+-          sdk_tarball="dist/npm/codex-sdk-npm-${VERSION}.tgz"
+-          # Keep this list in sync with CODEX_PLATFORM_PACKAGES in
+-          # codex-cli/scripts/build_npm_package.py. The root wrapper advances
+-          # @openai/codex@latest as soon as it publishes, so every platform
+-          # package it aliases must already exist in the registry first.
+-          platform_tarballs=(
+-            "dist/npm/codex-npm-linux-x64-${VERSION}.tgz"
+-            "dist/npm/codex-npm-linux-arm64-${VERSION}.tgz"
+-            "dist/npm/codex-npm-darwin-x64-${VERSION}.tgz"
+-            "dist/npm/codex-npm-darwin-arm64-${VERSION}.tgz"
+-            "dist/npm/codex-npm-win32-x64-${VERSION}.tgz"
+-            "dist/npm/codex-npm-win32-arm64-${VERSION}.tgz"
+-          )
+-
+-          for required_tarball in "${platform_tarballs[@]}" "${root_tarball}"; do
+-            if [[ ! -f "${required_tarball}" ]]; then
+-              echo "Missing npm tarball: ${required_tarball}"
+-              exit 1
+-            fi
+-          done
+-
+           shopt -s nullglob
+-          other_tarballs=()
+-          for tarball in dist/npm/*-"${VERSION}".tgz; do
+-            if [[ "${tarball}" == "${root_tarball}" || "${tarball}" == "${sdk_tarball}" ]]; then
+-              continue
+-            fi
+-
+-            is_platform_tarball=false
+-            for platform_tarball in "${platform_tarballs[@]}"; do
+-              if [[ "${tarball}" == "${platform_tarball}" ]]; then
+-                is_platform_tarball=true
+-                break
+-              fi
+-            done
+-            if [[ "${is_platform_tarball}" == true ]]; then
+-              continue
+-            fi
+-
+-            other_tarballs+=("${tarball}")
+-          done
+-
+-          # Publish the platform packages before the root CLI wrapper. The root
+-          # wrapper advances @openai/codex@latest, so it should only publish
+-          # after the optional dependency versions it references exist.
+-          tarballs=(
+-            "${platform_tarballs[@]}"
+-            "${other_tarballs[@]}"
+-            "${root_tarball}"
+-          )
+-          if [[ -f "${sdk_tarball}" ]]; then
+-            tarballs+=("${sdk_tarball}")
++          tarballs=(dist/npm/*-"${VERSION}".tgz)
++          if [[ ${#tarballs[@]} -eq 0 ]]; then
++            echo "No npm tarballs found in dist/npm for version ${VERSION}"
++            exit 1
+           fi
+ 
+           for tarball in "${tarballs[@]}"; do
+diff --git a/codex-rs/cli/src/debug_sandbox.rs b/codex-rs/cli/src/debug_sandbox.rs
+index e9bc6a046e..0829e14d96 100644
+--- a/codex-rs/cli/src/debug_sandbox.rs
++++ b/codex-rs/cli/src/debug_sandbox.rs
+@@ -369,7 +369,7 @@ async fn run_command_under_windows_session(
+             command,
+             cwd.as_path(),
+             env,
+-            None,
++            /*timeout_ms*/ None,
+             /*tty*/ false,
+             /*stdin_open*/ true,
+             config.permissions.windows_sandbox_private_desktop,
+@@ -383,7 +383,7 @@ async fn run_command_under_windows_session(
+             command,
+             cwd.as_path(),
+             env,
+-            None,
++            /*timeout_ms*/ None,
+             /*tty*/ false,
+             /*stdin_open*/ true,
+             config.permissions.windows_sandbox_private_desktop,
+diff --git a/codex-rs/core/src/compact_remote.rs b/codex-rs/core/src/compact_remote.rs
+index d8adb20772..0ee5175717 100644
+--- a/codex-rs/core/src/compact_remote.rs
++++ b/codex-rs/core/src/compact_remote.rs
+@@ -239,9 +239,32 @@ pub(crate) async fn process_compacted_history(
+     };
+ 
+     compacted_history.retain(should_keep_compacted_history_item);
++    remove_orphaned_assistant_messages(&mut compacted_history);
+     insert_initial_context_before_last_real_user_or_summary(compacted_history, initial_context)
+ }
+ 
++/// Removes assistant `Message` items that lost their paired `Reasoning` during
++/// the `retain()` pass. The Azure Responses API rejects a message whose
++/// reasoning was stripped.
++fn remove_orphaned_assistant_messages(items: &mut Vec<ResponseItem>) {
++    let mut i = 0;
++    while i < items.len() {
++        if let ResponseItem::Message {
++            id: Some(_), role, ..
++        } = &items[i]
++            && role == "assistant"
++        {
++            let preceded_by_reasoning =
++                i > 0 && matches!(&items[i - 1], ResponseItem::Reasoning { .. });
++            if !preceded_by_reasoning {
++                items.remove(i);
++                continue;
++            }
++        }
++        i += 1;
++    }
++}
++
+ /// Returns whether an item from remote compaction output should be preserved.
+ ///
+ /// Called while processing the model-provided compacted transcript, before we
+diff --git a/codex-rs/core/src/compact_tests.rs b/codex-rs/core/src/compact_tests.rs
+index 8fdb7fb4b2..1caf8b057b 100644
+--- a/codex-rs/core/src/compact_tests.rs
++++ b/codex-rs/core/src/compact_tests.rs
+@@ -209,6 +209,59 @@ fn should_use_remote_compact_task_for_azure_provider() {
+     assert!(should_use_remote_compact_task(&provider));
+ }
+ 
++#[tokio::test]
++async fn process_compacted_history_removes_orphaned_assistant_messages() {
++    let compacted_history = vec![
++        ResponseItem::Message {
++            id: Some("msg_abc".to_string()),
++            role: "assistant".to_string(),
++            content: vec![ContentItem::OutputText {
++                text: "orphaned assistant".to_string(),
++            }],
++            phase: None,
++        },
++        ResponseItem::Message {
++            id: None,
++            role: "assistant".to_string(),
++            content: vec![ContentItem::OutputText {
++                text: "keep me".to_string(),
++            }],
++            phase: None,
++        },
++        ResponseItem::Message {
++            id: None,
++            role: "user".to_string(),
++            content: vec![ContentItem::InputText {
++                text: "summary".to_string(),
++            }],
++            phase: None,
++        },
++    ];
++    let (refreshed, initial_context) = process_compacted_history_with_test_session(
++        compacted_history,
++        /*previous_turn_settings*/ None,
++    )
++    .await;
++    let mut expected = vec![ResponseItem::Message {
++        id: None,
++        role: "assistant".to_string(),
++        content: vec![ContentItem::OutputText {
++            text: "keep me".to_string(),
++        }],
++        phase: None,
++    }];
++    expected.extend(initial_context);
++    expected.push(ResponseItem::Message {
++        id: None,
++        role: "user".to_string(),
++        content: vec![ContentItem::InputText {
++            text: "summary".to_string(),
++        }],
++        phase: None,
++    });
++    assert_eq!(refreshed, expected);
++}
++
+ #[tokio::test]
+ async fn process_compacted_history_replaces_developer_messages() {
+     let compacted_history = vec![
+diff --git a/codex-rs/core/src/unified_exec/process_manager.rs b/codex-rs/core/src/unified_exec/process_manager.rs
+index c67abc48d6..c099c193d3 100644
+--- a/codex-rs/core/src/unified_exec/process_manager.rs
++++ b/codex-rs/core/src/unified_exec/process_manager.rs
+@@ -897,7 +897,7 @@ impl UnifiedExecProcessManager {
+                         request.command.clone(),
+                         request.cwd.as_path(),
+                         request.env.clone(),
+-                        None,
++                        /*timeout_ms*/ None,
+                         tty,
+                         tty,
+                         request.windows_sandbox_private_desktop,
+@@ -913,7 +913,7 @@ impl UnifiedExecProcessManager {
+                         request.command.clone(),
+                         request.cwd.as_path(),
+                         request.env.clone(),
+-                        None,
++                        /*timeout_ms*/ None,
+                         tty,
+                         tty,
+                         request.windows_sandbox_private_desktop,
+diff --git a/codex-rs/debug-client/src/output.rs b/codex-rs/debug-client/src/output.rs
+index f164a3ade8..a0496746e1 100644
+--- a/codex-rs/debug-client/src/output.rs
++++ b/codex-rs/debug-client/src/output.rs
+@@ -160,10 +160,10 @@ mod tests {
+         let output = Output::new(Some(file));
+ 
+         output
+-            .server_json_line(r#"{"id":1}"#, false)
++            .server_json_line(r#"{"id":1}"#, /*filtered_output*/ false)
+             .expect("write unfiltered line");
+         output
+-            .server_json_line(r#"{"id":2}"#, true)
++            .server_json_line(r#"{"id":2}"#, /*filtered_output*/ true)
+             .expect("write filtered line");
+ 
+         assert_eq!(
+diff --git a/codex-rs/windows-sandbox-rs/src/unified_exec/tests.rs b/codex-rs/windows-sandbox-rs/src/unified_exec/tests.rs
+index b0530a4fb4..a3bd49e362 100644
+--- a/codex-rs/windows-sandbox-rs/src/unified_exec/tests.rs
++++ b/codex-rs/windows-sandbox-rs/src/unified_exec/tests.rs
+@@ -307,7 +307,7 @@ fn runner_stdin_writer_sends_close_stdin_after_input_eof() {
+         drop(writer_tx);
+         writer_handle.await.expect("join stdin writer");
+ 
+-        let frames = wait_for_frame_count(&frames_path, 2);
++        let frames = wait_for_frame_count(&frames_path, /*expected_frames*/ 2);
+ 
+         match &frames[0] {
+             Message::Stdin { payload } => {
+@@ -346,7 +346,7 @@ fn runner_resizer_sends_resize_frame() {
+         })
+         .expect("send resize frame");
+ 
+-        let frames = wait_for_frame_count(&frames_path, 1);
++        let frames = wait_for_frame_count(&frames_path, /*expected_frames*/ 1);
+         match &frames[0] {
+             Message::Resize { payload } => {
+                 assert_eq!(payload.rows, 45);
