@@ -209,6 +209,59 @@ fn should_use_remote_compact_task_for_azure_provider() {
     assert!(should_use_remote_compact_task(&provider));
 }
 #[tokio::test]
+async fn process_compacted_history_removes_orphaned_assistant_messages() {
+    let compacted_history = vec![
+        ResponseItem::Message {
+            id: Some("msg_abc".to_string()),
+            role: "assistant".to_string(),
+            content: vec![ContentItem::OutputText {
+                text: "orphaned assistant".to_string(),
+            }],
+            phase: None,
+        },
+        ResponseItem::Message {
+            id: None,
+            role: "assistant".to_string(),
+            content: vec![ContentItem::OutputText {
+                text: "keep me".to_string(),
+            }],
+            phase: None,
+        },
+        ResponseItem::Message {
+            id: None,
+            role: "user".to_string(),
+            content: vec![ContentItem::InputText {
+                text: "summary".to_string(),
+            }],
+            phase: None,
+        },
+    ];
+    let (refreshed, initial_context) = process_compacted_history_with_test_session(
+        compacted_history,
+        /*previous_turn_settings*/ None,
+    )
+    .await;
+    let mut expected = vec![ResponseItem::Message {
+        id: None,
+        role: "assistant".to_string(),
+        content: vec![ContentItem::OutputText {
+            text: "keep me".to_string(),
+        }],
+        phase: None,
+    }];
+    expected.extend(initial_context);
+    expected.push(ResponseItem::Message {
+        id: None,
+        role: "user".to_string(),
+        content: vec![ContentItem::InputText {
+            text: "summary".to_string(),
+        }],
+        phase: None,
+    });
+    assert_eq!(refreshed, expected);
+}
+
+#[tokio::test]
 async fn process_compacted_history_replaces_developer_messages() {
     let compacted_history = vec![
         ResponseItem::Message {
