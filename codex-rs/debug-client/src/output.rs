@@ -160,10 +160,10 @@ mod tests {
         let output = Output::new(Some(file));
 
         output
-            .server_json_line(r#"{"id":1}"#, false)
+            .server_json_line(r#"{"id":1}"#, /*filtered_output*/ false)
             .expect("write unfiltered line");
         output
-            .server_json_line(r#"{"id":2}"#, true)
+            .server_json_line(r#"{"id":2}"#, /*filtered_output*/ true)
             .expect("write filtered line");
 
         assert_eq!(
