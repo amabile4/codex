@@ -1,0 +1,329 @@
+diff --git a/.github/workflows/build-and-release.yml b/.github/workflows/build-and-release.yml
+new file mode 100644
+index 0000000000..f41610e73d
+--- /dev/null
++++ b/.github/workflows/build-and-release.yml
+@@ -0,0 +1,68 @@
++name: build-and-release-windows-azure-fork
++
++on:
++  push:
++    tags:
++      - "azure-release-*"
++
++concurrency:
++  group: ${{ github.workflow }}-${{ github.ref }}
++  cancel-in-progress: true
++
++jobs:
++  build-windows:
++    runs-on: windows-latest
++    timeout-minutes: 240
++    steps:
++      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
++
++      - uses: dtolnay/rust-toolchain@a0b273b48ed29de4470960879e8381ff45632f26 # 1.93.0
++
++      - uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
++        with:
++          path: |
++            ~/.cargo/registry
++            ~/.cargo/git
++            codex-rs/target
++          key: windows-${{ hashFiles('**/Cargo.lock') }}
++
++      - name: Build Windows binaries
++        working-directory: codex-rs
++        shell: bash
++        run: |
++          cargo build --release \
++            --bin codex \
++            --bin codex-windows-sandbox-setup \
++            --bin codex-command-runner
++
++      - name: Package zip
++        shell: pwsh
++        run: |
++          # Azure fork: only publish the three Windows executables we support.
++          New-Item -ItemType Directory -Force -Path dist | Out-Null
++          Copy-Item codex-rs/target/release/codex.exe dist/
++          Copy-Item codex-rs/target/release/codex-windows-sandbox-setup.exe dist/
++          Copy-Item codex-rs/target/release/codex-command-runner.exe dist/
++          Compress-Archive dist/* dist/codex-windows.zip -Force
++
++      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
++        with:
++          name: codex-windows
++          path: dist/codex-windows.zip
++
++  release:
++    needs: build-windows
++    if: startsWith(github.ref, 'refs/tags/')
++    runs-on: ubuntu-latest
++    permissions:
++      contents: write
++    steps:
++      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
++        with:
++          name: codex-windows
++          path: dist
++
++      - uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2
++        with:
++          tag_name: ${{ github.ref_name }}
++          files: dist/codex-windows.zip
+diff --git a/.github/workflows/close-stale-contributor-prs.yml b/.github/workflows/close-stale-contributor-prs.yml
+index e8cea8226b..f2b5516325 100644
+--- a/.github/workflows/close-stale-contributor-prs.yml
++++ b/.github/workflows/close-stale-contributor-prs.yml
+@@ -2,8 +2,6 @@ name: Close stale contributor PRs
+ 
+ on:
+   workflow_dispatch:
+-  schedule:
+-    - cron: "0 6 * * *"
+ 
+ permissions:
+   contents: read
+diff --git a/.github/workflows/rust-release-prepare.yml b/.github/workflows/rust-release-prepare.yml
+index 67e542efa9..47e4eb11db 100644
+--- a/.github/workflows/rust-release-prepare.yml
++++ b/.github/workflows/rust-release-prepare.yml
+@@ -1,8 +1,6 @@
+ name: rust-release-prepare
+ on:
+   workflow_dispatch:
+-  schedule:
+-    - cron: "0 */4 * * *"
+ 
+ concurrency:
+   group: ${{ github.workflow }}
+diff --git a/codex-rs/cli/src/debug_sandbox.rs b/codex-rs/cli/src/debug_sandbox.rs
+index 918d81aad2..5112d2ed3e 100644
+--- a/codex-rs/cli/src/debug_sandbox.rs
++++ b/codex-rs/cli/src/debug_sandbox.rs
+@@ -381,7 +381,7 @@ async fn run_command_under_windows_session(
+             command,
+             cwd.as_path(),
+             env,
+-            None,
++            /*timeout_ms*/ None,
+             /*read_roots_override*/ None,
+             /*read_roots_include_platform_defaults*/ false,
+             /*write_roots_override*/ None,
+@@ -400,7 +400,7 @@ async fn run_command_under_windows_session(
+             command,
+             cwd.as_path(),
+             env,
+-            None,
++            /*timeout_ms*/ None,
+             /*additional_deny_read_paths*/ &[],
+             /*additional_deny_write_paths*/ &[],
+             /*tty*/ false,
+diff --git a/codex-rs/core/src/compact_remote.rs b/codex-rs/core/src/compact_remote.rs
+index 969da47544..b5ac33d366 100644
+--- a/codex-rs/core/src/compact_remote.rs
++++ b/codex-rs/core/src/compact_remote.rs
+@@ -268,9 +268,77 @@ pub(crate) async fn process_compacted_history(
+     };
+ 
+     compacted_history.retain(should_keep_compacted_history_item);
++    remove_orphaned_assistant_messages(&mut compacted_history);
+     insert_initial_context_before_last_real_user_or_summary(compacted_history, initial_context)
+ }
+ 
++/// Removes assistant `Message` items that lost their paired `Reasoning` during
++/// the `retain()` pass. The Azure Responses API rejects a message whose
++/// reasoning was stripped.
++fn remove_orphaned_assistant_messages(items: &mut Vec<ResponseItem>) {
++    let mut i = 0;
++    while i < items.len() {
++        if let ResponseItem::Message {
++            id: Some(_), role, ..
++        } = &items[i]
++            && role == "assistant"
++        {
++            let preceded_by_reasoning =
++                i > 0 && matches!(&items[i - 1], ResponseItem::Reasoning { .. });
++            if !preceded_by_reasoning {
++                items.remove(i);
++                continue;
++            }
++        }
++        i += 1;
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use super::remove_orphaned_assistant_messages;
++    use super::should_keep_compacted_history_item;
++    use codex_protocol::models::ContentItem;
++    use codex_protocol::models::ResponseItem;
++
++    #[test]
++    fn remote_compaction_filter_does_not_orphan_assistant_message() {
++        let assistant = ResponseItem::Message {
++            id: Some("msg_test".to_string()),
++            role: "assistant".to_string(),
++            content: vec![ContentItem::OutputText {
++                text: "summary".to_string(),
++            }],
++            phase: None,
++        };
++        let mut compacted_history = vec![
++            ResponseItem::Reasoning {
++                id: "rs_test".to_string(),
++                summary: Vec::new(),
++                content: None,
++                encrypted_content: Some("encrypted".to_string()),
++            },
++            assistant,
++        ];
++
++        // This mirrors the minimal orphaned assistant fixture from openai/codex#20774.
++        compacted_history.retain(should_keep_compacted_history_item);
++        remove_orphaned_assistant_messages(&mut compacted_history);
++
++        assert!(
++            !matches!(
++                compacted_history.as_slice(),
++                [ResponseItem::Message {
++                    id: Some(_),
++                    role,
++                    ..
++                }] if role == "assistant"
++            ),
++            "assistant message survived without its reasoning predecessor: {compacted_history:?}"
++        );
++    }
++}
++
+ /// Returns whether an item from remote compaction output should be preserved.
+ ///
+ /// Called while processing the model-provided compacted transcript, before we
+diff --git a/codex-rs/core/src/compact_tests.rs b/codex-rs/core/src/compact_tests.rs
+index 69bd95f2df..84be42c051 100644
+--- a/codex-rs/core/src/compact_tests.rs
++++ b/codex-rs/core/src/compact_tests.rs
+@@ -239,6 +239,59 @@ fn should_use_remote_compact_task_for_azure_provider() {
+ 
+     assert!(should_use_remote_compact_task(&provider));
+ }
++#[tokio::test]
++async fn process_compacted_history_removes_orphaned_assistant_messages() {
++    let compacted_history = vec![
++        ResponseItem::Message {
++            id: Some("msg_abc".to_string()),
++            role: "assistant".to_string(),
++            content: vec![ContentItem::OutputText {
++                text: "orphaned assistant".to_string(),
++            }],
++            phase: None,
++        },
++        ResponseItem::Message {
++            id: None,
++            role: "assistant".to_string(),
++            content: vec![ContentItem::OutputText {
++                text: "keep me".to_string(),
++            }],
++            phase: None,
++        },
++        ResponseItem::Message {
++            id: None,
++            role: "user".to_string(),
++            content: vec![ContentItem::InputText {
++                text: "summary".to_string(),
++            }],
++            phase: None,
++        },
++    ];
++    let (refreshed, initial_context) = process_compacted_history_with_test_session(
++        compacted_history,
++        /*previous_turn_settings*/ None,
++    )
++    .await;
++    let mut expected = vec![ResponseItem::Message {
++        id: None,
++        role: "assistant".to_string(),
++        content: vec![ContentItem::OutputText {
++            text: "keep me".to_string(),
++        }],
++        phase: None,
++    }];
++    expected.extend(initial_context);
++    expected.push(ResponseItem::Message {
++        id: None,
++        role: "user".to_string(),
++        content: vec![ContentItem::InputText {
++            text: "summary".to_string(),
++        }],
++        phase: None,
++    });
++    assert_eq!(refreshed, expected);
++}
++
+ #[tokio::test]
+ async fn process_compacted_history_replaces_developer_messages() {
+     let compacted_history = vec![
+diff --git a/codex-rs/core/src/unified_exec/process_manager.rs b/codex-rs/core/src/unified_exec/process_manager.rs
+index fb99500755..b10caa6173 100644
+--- a/codex-rs/core/src/unified_exec/process_manager.rs
++++ b/codex-rs/core/src/unified_exec/process_manager.rs
+@@ -908,7 +908,7 @@ impl UnifiedExecProcessManager {
+                         request.command.clone(),
+                         request.cwd.as_path(),
+                         request.env.clone(),
+-                        None,
++                        /*timeout_ms*/ None,
+                         elevated_read_roots_override.as_deref(),
+                         elevated_read_roots_include_platform_defaults,
+                         elevated_write_roots_override.as_deref(),
+@@ -929,7 +929,7 @@ impl UnifiedExecProcessManager {
+                         request.command.clone(),
+                         request.cwd.as_path(),
+                         request.env.clone(),
+-                        None,
++                        /*timeout_ms*/ None,
+                         &additional_deny_read_paths,
+                         &additional_deny_write_paths,
+                         tty,
+diff --git a/codex-rs/debug-client/src/output.rs b/codex-rs/debug-client/src/output.rs
+index f164a3ade8..a0496746e1 100644
+--- a/codex-rs/debug-client/src/output.rs
++++ b/codex-rs/debug-client/src/output.rs
+@@ -160,10 +160,10 @@ mod tests {
+         let output = Output::new(Some(file));
+ 
+         output
+-            .server_json_line(r#"{"id":1}"#, false)
++            .server_json_line(r#"{"id":1}"#, /*filtered_output*/ false)
+             .expect("write unfiltered line");
+         output
+-            .server_json_line(r#"{"id":2}"#, true)
++            .server_json_line(r#"{"id":2}"#, /*filtered_output*/ true)
+             .expect("write filtered line");
+ 
+         assert_eq!(
+diff --git a/codex-rs/windows-sandbox-rs/src/unified_exec/tests.rs b/codex-rs/windows-sandbox-rs/src/unified_exec/tests.rs
+index e2830ad8a1..7d6153db3f 100644
+--- a/codex-rs/windows-sandbox-rs/src/unified_exec/tests.rs
++++ b/codex-rs/windows-sandbox-rs/src/unified_exec/tests.rs
+@@ -354,7 +354,7 @@ fn runner_stdin_writer_sends_close_stdin_after_input_eof() {
+         drop(writer_tx);
+         writer_handle.await.expect("join stdin writer");
+ 
+-        let frames = wait_for_frame_count(&frames_path, 2);
++        let frames = wait_for_frame_count(&frames_path, /*expected_frames*/ 2);
+ 
+         match &frames[0] {
+             Message::Stdin { payload } => {
+@@ -393,7 +393,7 @@ fn runner_resizer_sends_resize_frame() {
+         })
+         .expect("send resize frame");
+ 
+-        let frames = wait_for_frame_count(&frames_path, 1);
++        let frames = wait_for_frame_count(&frames_path, /*expected_frames*/ 1);
+         match &frames[0] {
+             Message::Resize { payload } => {
+                 assert_eq!(payload.rows, 45);
