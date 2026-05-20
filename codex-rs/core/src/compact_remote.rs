@@ -267,7 +267,75 @@ pub(crate) async fn process_compacted_history(
     };
 
     compacted_history.retain(should_keep_compacted_history_item);
+    remove_orphaned_assistant_messages(&mut compacted_history);
     insert_initial_context_before_last_real_user_or_summary(compacted_history, initial_context)
+}
+
+/// Removes assistant `Message` items that lost their paired `Reasoning` during
+/// the `retain()` pass. The Azure Responses API rejects a message whose
+/// reasoning was stripped.
+fn remove_orphaned_assistant_messages(items: &mut Vec<ResponseItem>) {
+    let mut i = 0;
+    while i < items.len() {
+        if let ResponseItem::Message {
+            id: Some(_), role, ..
+        } = &items[i]
+            && role == "assistant"
+        {
+            let preceded_by_reasoning =
+                i > 0 && matches!(&items[i - 1], ResponseItem::Reasoning { .. });
+            if !preceded_by_reasoning {
+                items.remove(i);
+                continue;
+            }
+        }
+        i += 1;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::remove_orphaned_assistant_messages;
+    use super::should_keep_compacted_history_item;
+    use codex_protocol::models::ContentItem;
+    use codex_protocol::models::ResponseItem;
+
+    #[test]
+    fn remote_compaction_filter_does_not_orphan_assistant_message() {
+        let assistant = ResponseItem::Message {
+            id: Some("msg_test".to_string()),
+            role: "assistant".to_string(),
+            content: vec![ContentItem::OutputText {
+                text: "summary".to_string(),
+            }],
+            phase: None,
+        };
+        let mut compacted_history = vec![
+            ResponseItem::Reasoning {
+                id: "rs_test".to_string(),
+                summary: Vec::new(),
+                content: None,
+                encrypted_content: Some("encrypted".to_string()),
+            },
+            assistant,
+        ];
+
+        // This mirrors the minimal orphaned assistant fixture from openai/codex#20774.
+        compacted_history.retain(should_keep_compacted_history_item);
+        remove_orphaned_assistant_messages(&mut compacted_history);
+
+        assert!(
+            !matches!(
+                compacted_history.as_slice(),
+                [ResponseItem::Message {
+                    id: Some(_),
+                    role,
+                    ..
+                }] if role == "assistant"
+            ),
+            "assistant message survived without its reasoning predecessor: {compacted_history:?}"
+        );
+    }
 }
 
 /// Returns whether an item from remote compaction output should be preserved.
